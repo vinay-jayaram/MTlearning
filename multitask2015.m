@@ -1,5 +1,6 @@
 function [out] = multitask2015(data, labels, varargin)
 %% Documentation
+% function [out] = multitask2015(data, labels, varargin)
 % Vinay Jayaram, 14.10.15, high-level implementation of Jayaram et al.
 % 2016
 %

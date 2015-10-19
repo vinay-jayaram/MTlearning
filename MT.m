@@ -81,4 +81,7 @@ while sum(or(abs(out.mu) > mu_prev+0.01*mu_prev,abs(out.mu) < mu_prev-0.01*mu_pr
     % Increment counter
     count=count+1;
 end
+if count == 10000
+    warning('FailedConvergence','convergence failed')
+end
 end

@@ -131,6 +131,6 @@ end
 out.weight=weight;
 out.alpha=alpha;
 if count == 10000
-    disp('convergence failed')
+    warning('FailedConvergence','convergence failed')
 end
 end

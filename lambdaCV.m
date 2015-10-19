@@ -37,8 +37,6 @@ end
 parallel = invarargin(varargin,'parallel');
 if isempty(parallel)
     parallel=0;
-else
-    error('Congratulations, you found the hidden unimplemented feature!');
 end
 
 lrange = invarargin(varargin,'lrange');
@@ -97,6 +95,54 @@ if ~parallel
             cvacc(it,l)=loss(ret_obj,testdata,testlabels);
         end
     end
+else
+    if v; fprintf('Using parallel feature\n');end
+    pool = gcp('nocreate');
+    if isempty(pool)
+        pool=parpool(parallel);
+    else
+        disp('Using pre-existing pool');
+    end
+    for l = 1:length(lrange)
+        if v; fprintf('Currently testing %dth value : %d\n',l,lrange(l));end
+        test_indices={};
+        
+        %Initialize future test indices
+        for i = 1:length(data)
+            test_indices{i}=1:length(labels{i});
+        end
+        
+        %partition outside parallel loop
+        par_testind={};
+        for d = 1:length(data)
+                % Choose test indices without trying to balance classes
+                n_test=floor(size(data{d},sten)/n);
+                par_testind{d}=test_indices{d}(randperm(length(test_indices{d}),n_test));
+                test_indices{d}= setdiff(test_indices{d},par_testind{d});
+        end
+        
+        parfor it =1:n
+            if v; fprintf('CV iteration : %d\n',it);end
+            trialdata={};
+            triallabels={};
+            testlabels={};
+            testdata={};
+            par_cln=cln;
+            for d = 1:length(data)
+                % Choose test indices without trying to balance classes
+                par_cln(sten)={par_testind{d}};
+                testdata{d}=data{d}(par_cln{:});
+                testlabels{d}=labels{d}(par_testind{d});
+                par_cln(sten)={setdiff(1:length(labels{d}),par_testind{d})};
+                trialdata{d}=data{d}(par_cln{:});
+                triallabels{d}=labels{d}(setdiff(1:length(labels{d}),par_testind{d}));
+            end
+            
+            ret_obj = f(trialdata, triallabels, lrange(l));
+            cvacc(it,l)=loss(ret_obj,testdata,testlabels);
+        end
+    end
+    delete(pool);
 end
 cvout=cvacc;
 cvacc=mean(cvacc,1);
