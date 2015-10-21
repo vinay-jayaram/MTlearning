@@ -60,12 +60,12 @@ subjects=length(X);
 count=0;
 features=length(weight.mu);
 weight.mat=zeros(length(weight.sigma),subjects);
-MAX_ITERATIONS=10000;
+MAX_ITERATIONS=5000;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Main loop
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-while sum(or(abs(weight.mu) > mu_prev+0.01*mu_prev,abs(weight.mu) < mu_prev-0.01*mu_prev))>0 && count < MAX_ITERATIONS
+while sum(or(abs(weight.mu) > (mu_prev+0.01*mu_prev),abs(weight.mu) < (mu_prev-0.01*mu_prev)))>0 && count < MAX_ITERATIONS
     
     mu_prev=abs(weight.mu);
     %%%%%%%%%%%%%%
@@ -83,7 +83,7 @@ while sum(or(abs(weight.mu) > mu_prev+0.01*mu_prev,abs(weight.mu) < mu_prev-0.01
         w_prev=ones(length(weight.sigma),1);
         count2=1;
         ntrials=size(X{i},3);
-        while sum(or(abs(weight.mat(:,i)) > w_prev+0.01*w_prev,abs(weight.mat(:,i)) < w_prev-0.01*w_prev))>0 && count2<MAX_ITERATIONS
+        while sum(or(abs(weight.mat(:,i)) > (w_prev+0.01*w_prev),abs(weight.mat(:,i)) < (w_prev-0.01*w_prev)))>0 && count2<MAX_ITERATIONS
             
             w_prev = abs(weight.mat(:,i));
             
@@ -130,7 +130,7 @@ while sum(or(abs(weight.mu) > mu_prev+0.01*mu_prev,abs(weight.mu) < mu_prev-0.01
 end
 out.weight=weight;
 out.alpha=alpha;
-if count == 10000
+if count == MAX_ITERATIONS
     warning('FailedConvergence','convergence failed')
 end
 end

@@ -41,7 +41,7 @@ subjects=length(X);
 out.mat=zeros(length(out.sigma),subjects);
 mu_prev=ones(length(out.sigma),1);
 count=1;
-MAX_ITERATIONS=10000;
+MAX_ITERATIONS=5000;
 
 % Defining the bounds of convergence; more important in cases with low data 
 % when some dimensions do not converge. The current is demanding that 99%
@@ -51,7 +51,7 @@ max_vary=floor(0.01*length(out.mu));
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Main loop
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-while sum(or(abs(out.mu) > mu_prev+0.01*mu_prev,abs(out.mu) < mu_prev-0.01*mu_prev))>max_vary && count < MAX_ITERATIONS
+ while sum(or(abs(out.mu) > (mu_prev+0.01*mu_prev),abs(out.mu) < (mu_prev-0.01*mu_prev)))>max_vary && count < MAX_ITERATIONS
 
     mu_prev = abs(out.mu);
     
