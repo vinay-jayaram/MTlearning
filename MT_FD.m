@@ -24,7 +24,7 @@ function [ out] = MT_FD(X,y,varargin)
 %                     or do ridge regression-ish. Default is zeros and I
 %   'lambda':    Define external lambda and don't use ML update
 %   'verbose':   Print convergence information per iteration
-
+w = warning ('off','MATLAB:nearlySingularMatrix');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Argument parsing
@@ -125,7 +125,7 @@ while sum(or(abs(weight.mu) > mu_prev+PCT*mu_prev,abs(weight.mu) < mu_prev-PCT*m
             % update alpha
             alpha.mat(:,i)=(lambda*alpha.sigma*(wX_s*wX_s')+eye(size(wX_s,1)))\...
                 (lambda*alpha.sigma*wX_s*y{i}+alpha.mu);
-            
+                       
             % EXPERIMENTAL--norm alpha to 1
             %alpha.mat(:,i)=alpha.mat(:,i)/norm(alpha.mat(:,i));
             

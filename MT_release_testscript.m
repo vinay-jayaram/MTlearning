@@ -19,17 +19,15 @@ end
 % transfer learning accuracies but rather multitask accuracies. For
 % transfer learning accuracies you must update the decision rule with data
 % from the newest subject)
+
 MT=multitask2015(X(1:end-1),y(1:end-1),'verbose',1,'out_acc',1);
 
 
 % solution with ridge-regression prior
 MT_rr=multitask2015(X(1:end-1),y(1:end-1),'rr_init',1,'verbose',1);
 
-% update given prior
-MT_s7=multitask2015(X(end),y(end),'prior',MT);
-
-% MT_s7.mat is the weight vector of interest; for binary classification,
-% the label is given by sign(MT_s7.mat'*x_trial)
+% cross-validated accuracy for all
+[priors,accs]=MTdataset(X,y,{'verbose',1});
 
 % For other options please look up documentation for each function
 % (available once the function is in your path by using 'help

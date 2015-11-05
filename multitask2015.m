@@ -184,7 +184,7 @@ end
 % a lambda then cross-validate with the learned lambda to generate decision functions. 
 % The best way to ensure your results are reasonable is to train the lambda
 % on a separate dataset from the test
-if outacc
+if outacc && lambdaML
     n=10;
     sten=ndims(data{1});
     cln(1:(ndims(data{1})-1)) = {':'};
@@ -214,15 +214,17 @@ if outacc
         end
         switch T
             case ''
-                ret_obj=MT(trialdata, triallabels,'lambda',out.lambda);
+                ret_obj=MT(trialdata, triallabels);
                 %not the smartest way to deal with this
                 ret_obj.alpha=[];
             case 'FD'
-                ret_obj=MT_FD(trialdata, triallabels, 'lambda',out.lambda);
+                ret_obj=MT_FD(trialdata, triallabels);
         end
         cvacc(:,it)=multibinloss(ret_obj,testdata,testlabels);
     end
-    out.trainacc=cvacc;
+    out.trainacc=cvacc;    
+elseif outacc && ~lambdaML
+        out.trainacc=out.cvacc;
 end
 
 end
