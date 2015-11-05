@@ -23,8 +23,10 @@ function [out] = multitask2015(data, labels, varargin)
 % specified prior
 % 'cv_params' - cell array of varargin to give cross-validation function
 % 'cv' - cross validate lambda instead of ML update (binary 1/0) [ default
-% 1]
+% 0]
 % 'boostrap' - Equalize classes if not equalized, default 0
+% 'out_acc' - Return cross-validated multi-task accuracy over training data using
+% learned lambda, default 0
 
 %% Argument parsing
 
@@ -51,6 +53,12 @@ if isempty(v)
     v=0;
 end
 
+outacc = invarargin(varargin,'out_acc');
+if isempty(outacc)
+    outacc=0;
+end
+
+
 eta = invarargin(varargin,'eta');
 if isempty(eta)
     eta=1e-3;
@@ -59,6 +67,8 @@ end
 lambdaML = invarargin(varargin,'cv');
 if isempty(lambdaML)
     lambdaML=1;
+else
+    lambdaML=~lambdaML;
 end
 
 bs = invarargin(varargin,'bootstrap');
@@ -154,23 +164,65 @@ end
 switch T
     case ''
         if ~lambdaML
-            [ lam, cvaccs ] = lambdaCV(@(x,y,l)(MT(x,y,'lambda',l,'eta',eta,'prior',prior)),@(obj,x,y)(multibinloss(obj,x,y,'type','')),data,labels,cv_params{:});
+            [ lam, cvaccs ] = lambdaCV(@(x,y,l)(MT(x,y,'lambda',l,'eta',eta,'prior',prior)),@(obj,x,y)(mean(multibinloss(obj,x,y,'type',''))),data,labels,cv_params{:});
             out=MT(data,labels,'lambda',lam,'prior',prior,'eta',eta,'verbose',v);
-            out.lambda=lam;
             out.cvacc=cvaccs;
         else
             out=MT(data,labels,'prior',prior,'eta',eta,'verbose',v);
         end
     case 'FD'
         if ~lambdaML
-            [ lam, cvaccs ] = lambdaCV(@(x,y,l)(MT_FD(x,y,l,'eta',eta,'prior',prior)),@(obj,x,y)(multibinloss(obj,x,y,'type','FD')),data,labels,cv_params{:});
+            [ lam, cvaccs ] = lambdaCV(@(x,y,l)(MT_FD(x,y,l,'eta',eta,'prior',prior)),@(obj,x,y)(mean(multibinloss(obj,x,y,'type','FD'))),data,labels,cv_params{:});
             out=MT_FD(data,labels,'lambda',lam,'prior',prior,'eta',eta,'verbose',v);
-            out.lambda=lam;
             out.cvacc=cvaccs;
         else
             out=MT_FD(data,labels,'prior',prior,'eta',eta,'verbose',v);
         end
 end
 
+% Warning: The below counts as double-dipping. We use all the data to learn
+% a lambda then cross-validate with the learned lambda to generate decision functions. 
+% The best way to ensure your results are reasonable is to train the lambda
+% on a separate dataset from the test
+if outacc
+    n=10;
+    sten=ndims(data{1});
+    cln(1:(ndims(data{1})-1)) = {':'};
+    cvacc=zeros(length(data),n);
+    if v; disp('Computing cross-validated accuracy on training data using learned lambda');end
+    %Initialize future test indices
+    for i = 1:length(data)
+        test_indices{i}=1:length(labels{i});
+    end
+    for it =1:n % currently hard-coded...should change?
+        if v; fprintf('CV iteration : %d\n',it);end
+        trialdata={};
+        triallabels={};
+        testlabels={};
+        testdata={};
+        for d = 1:length(data)
+            % Choose test indices without trying to balance classes
+            n_test=floor(size(data{d},sten)/n);
+            testind=test_indices{d}(randperm(length(test_indices{d}),n_test));
+            test_indices{d}= setdiff(test_indices{d},testind);
+            cln(sten)={testind};
+            testdata{d}=data{d}(cln{:});
+            testlabels{d}=labels{d}(testind);
+            cln(sten)={setdiff(1:length(labels{d}),testind)};
+            trialdata{d}=data{d}(cln{:});
+            triallabels{d}=labels{d}(setdiff(1:length(labels{d}),testind));
+        end
+        switch T
+            case ''
+                ret_obj=MT(trialdata, triallabels,'lambda',out.lambda);
+                %not the smartest way to deal with this
+                ret_obj.alpha=[];
+            case 'FD'
+                ret_obj=MT_FD(trialdata, triallabels, 'lambda',out.lambda);
+        end
+        cvacc(:,it)=multibinloss(ret_obj,testdata,testlabels);
+    end
+    out.trainacc=cvacc;
+end
 
 end
