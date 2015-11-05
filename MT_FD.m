@@ -1,5 +1,7 @@
-function [ out] = MT_FD(X,y,lambda,varargin)
+function [ out] = MT_FD(X,y,varargin)
 %%
+% Experiment: set lambda as average residual
+%
 %Function to compute the multi-task learning approach with feature decomposition. Takes:
 %    X: cell array of data, each element is a (channels x features x
 %    trials) array
@@ -20,7 +22,8 @@ function [ out] = MT_FD(X,y,lambda,varargin)
 %   vector
 %   'prior':      {frequency mean,cov;spatial mean, cov} cell array if one wants to bias calculations
 %                     or do ridge regression-ish. Default is zeros and I
-
+%   'lambda':    Define external lambda and don't use ML update
+%   'verbose':   Print convergence information per iteration
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -30,6 +33,11 @@ function [ out] = MT_FD(X,y,lambda,varargin)
 eta = invarargin(varargin,'eta');
 if isempty(eta)
     eta=1e-3;
+end
+
+verbose = invarargin(varargin,'verbose');
+if isempty(verbose)
+    verbose=0;
 end
 
 a_init = invarargin(varargin,'alpha_init');
@@ -45,10 +53,20 @@ if isempty(priors)
     priors{2,1}=a_init;
 end
 
+
+inlambda=invarargin(varargin,'lambda');
+if isempty(inlambda)
+    lambdaML=1;
+    lambda=1;
+else
+    lambda=inlambda;
+    lambdaML=0;
+end
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Variable initialization
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 chans=size(X{1},1);
 weight.sigma=priors{1,2};
 weight.mu=priors{1,1};
@@ -61,12 +79,15 @@ count=0;
 features=length(weight.mu);
 weight.mat=zeros(length(weight.sigma),subjects);
 MAX_ITERATIONS=5000;
+PCT=0.02;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Main loop
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-while sum(or(abs(weight.mu) > (mu_prev+0.01*mu_prev),abs(weight.mu) < (mu_prev-0.01*mu_prev)))>0 && count < MAX_ITERATIONS
-    
+while sum(or(abs(weight.mu) > mu_prev+PCT*mu_prev,abs(weight.mu) < mu_prev-PCT*mu_prev))>0 && count < MAX_ITERATIONS
+    if verbose
+    fprintf('it: %d, lambda %d, diff %d\n',count,lambda, sum(or(abs(weight.mu) > (mu_prev+PCT*mu_prev),abs(weight.mu) < (mu_prev-PCT*mu_prev))));
+    end
     mu_prev=abs(weight.mu);
     %%%%%%%%%%%%%%
     % W and alpha update
@@ -83,7 +104,7 @@ while sum(or(abs(weight.mu) > (mu_prev+0.01*mu_prev),abs(weight.mu) < (mu_prev-0
         w_prev=ones(length(weight.sigma),1);
         count2=1;
         ntrials=size(X{i},3);
-        while sum(or(abs(weight.mat(:,i)) > (w_prev+0.01*w_prev),abs(weight.mat(:,i)) < (w_prev-0.01*w_prev)))>0 && count2<MAX_ITERATIONS
+        while sum(or(abs(weight.mat(:,i)) > (w_prev+PCT*w_prev),abs(weight.mat(:,i)) < (w_prev-PCT*w_prev)))>0 && count2<MAX_ITERATIONS
             
             w_prev = abs(weight.mat(:,i));
             
@@ -93,8 +114,8 @@ while sum(or(abs(weight.mu) > (mu_prev+0.01*mu_prev),abs(weight.mu) < (mu_prev-0
                 aX_s(j,:)=alpha.mat(:,i)'*reshape(X{i}(:,:,j),chans,features);
             end
             % update W
-            weight.mat(:,i)=(lambda*weight.sigma*aX_s'*aX_s+(1-lambda)*eye(size(aX_s,2)))\...
-                (lambda*weight.sigma*aX_s'*y{i}+(1-lambda)*weight.mu);
+            weight.mat(:,i)=(lambda*weight.sigma*(aX_s'*aX_s)+eye(size(aX_s,2)))\...
+                (lambda*weight.sigma*aX_s'*y{i}+weight.mu);
             
             % update alpha with old W
             wX_s=zeros(chans,ntrials);
@@ -102,9 +123,17 @@ while sum(or(abs(weight.mu) > (mu_prev+0.01*mu_prev),abs(weight.mu) < (mu_prev-0
                 wX_s(:,j)=reshape(X{i}(:,:,j),chans,features)*weight.mat(:,i);
             end
             % update alpha
-            alpha.mat(:,i)=(lambda*alpha.sigma*wX_s*wX_s'+(1-lambda)*eye(size(wX_s,1)))\...
-                (lambda*alpha.sigma*wX_s*y{i}+(1-lambda)*alpha.mu);
+            alpha.mat(:,i)=(lambda*alpha.sigma*(wX_s*wX_s')+eye(size(wX_s,1)))\...
+                (lambda*alpha.sigma*wX_s*y{i}+alpha.mu);
+            
+            % EXPERIMENTAL--norm alpha to 1
+            %alpha.mat(:,i)=alpha.mat(:,i)/norm(alpha.mat(:,i));
+            
+            
             count2=count2+1;
+            if ~mod(count2,100) && verbose
+                fprintf('subj %d, inside: %d, diff %d\n',i,count2,sum(or(abs(weight.mat(:,i)) > (w_prev+PCT*w_prev),abs(weight.mat(:,i)) < (w_prev-PCT*w_prev))));
+            end
         end
     end
     
@@ -123,13 +152,27 @@ while sum(or(abs(weight.mu) > (mu_prev+0.01*mu_prev),abs(weight.mu) < (mu_prev-0
     %update Sigma
     temp=weight.mat-repmat(weight.mu,1,subjects);
     atemp=alpha.mat-repmat(alpha.mu,1,subjects);
-    % constrain covariance to be trace one
-    weight.sigma= temp*temp'/(trace(temp*temp'))+ eta*eye(length(weight.sigma));
-    alpha.sigma= atemp*atemp'/(trace(atemp*atemp'))+ eta*eye(length(alpha.sigma));
+    % constrain covariance to be trace one (only for one of them though)
+    weight.sigma= (1/(size(temp,2)-1))*(temp*temp')+ eta*eye(length(weight.sigma));
+    alpha.sigma= (1/(size(atemp,2)-1))*(atemp*atemp')+ eta*eye(length(alpha.sigma));
     count=count+1;
+    
+    % update lambda
+    if lambdaML
+        res=0;
+        ntrials=0;
+        for i = 1:subjects
+            for j = 1:size(X{i},3)
+                res=res+(y{i}(j)-(alpha.mat(:,i)'*squeeze(X{i}(:,:,j))*weight.mat(:,i)))^2;
+            end
+            ntrials=ntrials+size(X{i},3);
+        end
+        lambda=ntrials/(2*res);
+    end
 end
 out.weight=weight;
 out.alpha=alpha;
+out.lambda=lambda;
 if count == MAX_ITERATIONS
     warning('FailedConvergence','convergence failed')
 end

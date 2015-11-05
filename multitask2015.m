@@ -4,6 +4,8 @@ function [out] = multitask2015(data, labels, varargin)
 % Vinay Jayaram, 14.10.15, high-level implementation of Jayaram et al.
 % 2016
 %
+% ***Man I really wish MATLAB had good argument parsing
+%
 %*** note: so far there is no possibility of regression, just binary
 %classification. This can easily be added by the user.
 %
@@ -20,6 +22,9 @@ function [out] = multitask2015(data, labels, varargin)
 % 'prior' - None | cell array of objects, does ridge regression with
 % specified prior
 % 'cv_params' - cell array of varargin to give cross-validation function
+% 'cv' - cross validate lambda instead of ML update (binary 1/0) [ default
+% 1]
+% 'boostrap' - Equalize classes if not equalized, default 0
 
 %% Argument parsing
 
@@ -51,11 +56,24 @@ if isempty(eta)
     eta=1e-3;
 end
 
+lambdaML = invarargin(varargin,'cv');
+if isempty(lambdaML)
+    lambdaML=1;
+end
+
+bs = invarargin(varargin,'bootstrap');
+if isempty(bs)
+    bs=0;
+end
+
 cv_params=invarargin(varargin,'cv_params');
 if isempty(cv_params)
     cv_params={};
+else
+    lambdaML=1;
 end
-cv_params=cat(2,cv_params,{'verbose',v});
+cv_params=cat(2,cv_params,{'verbose',v,'bootstrap',bs});
+
 a_init = invarargin(varargin,'alpha_init');
 if isempty(a_init)
     a_init=ones(size(data{1},1),1)/sqrt(size(data{1},1));
@@ -66,18 +84,20 @@ if isempty(rr_init)
     rr_init=0;
 end
 
+
+
 if rr_init
     if strcmp(T,'')
         error('No ridge regression solution for non-FD necessary');
     end
-   if v; disp('Beginning ridge-regression computation');end
+    if v; disp('Beginning ridge-regression computation');end
     Xall=[];yall=[];
     for i = 1:length(data)
         Xall=cat(3,Xall,data{i});
         yall=cat(1,yall,labels{i});
     end
-    [lambda, rr_cv] = lambdaCV(@(x,y,l)(MT_FD(x,y,l)),@(obj,x,y)(multibinloss(obj,x,y,'type','FD')),{Xall},{yall});
-    rr_out=MT_FD({Xall},{yall},lambda,'eta',eta);
+    [lambda, rr_cv] = lambdaCV(@(x,y,l)(MT_FD(x,y,'lambda',l)),@(obj,x,y)(multibinloss(obj,x,y,'type','FD')),{Xall},{yall});
+    rr_out=MT_FD({Xall},{yall},'lambda',lambda,'eta',eta,'verbose',v);
     a_init=rr_out.alpha.mat;
     if v; disp('Spatial prior computation finished');end
 end
@@ -108,17 +128,49 @@ else
     prior=temp;
 end
 
+if length(data)==1
+    if v; disp('One task detected; cross-validation turned on'); end
+    lambdaML=0;
+end
+
 %% Main control
+
+%sample with replacement to equalize classes if bs option passed
+if lambdaML &&bs
+        disp('Bootstrapping before prior computation');
+    sten=ndims(data{1});
+    cln(1:(ndims(data{1})-1)) = {':'};
+    for i = 1:length(data)
+        if sum(labels{i}==1) ~= sum(labels{i}==-1)
+            [~, tmax]=sort(sum(labels{i}==1),sum(labels{i}==-1));
+            bstrap = randi(length(labels{i}),tmax,1);
+            cln(sten)={bstrap};
+            data{i}=data{i}(cln{:});
+            labels{i}=labels{i}(bstrap);
+        end
+    end    
+end
 
 switch T
     case ''
-        [ lam, cvaccs ] = lambdaCV(@(x,y,l)(MT(x,y,l,'eta',eta,'prior',prior)),@(obj,x,y)(multibinloss(obj,x,y,'type','')),data,labels,cv_params{:});
-        out=MT(data,labels,lam,'prior',prior,'eta',eta);
+        if ~lambdaML
+            [ lam, cvaccs ] = lambdaCV(@(x,y,l)(MT(x,y,'lambda',l,'eta',eta,'prior',prior)),@(obj,x,y)(multibinloss(obj,x,y,'type','')),data,labels,cv_params{:});
+            out=MT(data,labels,'lambda',lam,'prior',prior,'eta',eta,'verbose',v);
+            out.lambda=lam;
+            out.cvacc=cvaccs;
+        else
+            out=MT(data,labels,'prior',prior,'eta',eta,'verbose',v);
+        end
     case 'FD'
-        [ lam, cvaccs ] = lambdaCV(@(x,y,l)(MT_FD(x,y,l,'eta',eta,'prior',prior)),@(obj,x,y)(multibinloss(obj,x,y,'type','FD')),data,labels,cv_params{:});
-        out=MT_FD(data,labels,lam,'prior',prior,'eta',eta);
+        if ~lambdaML
+            [ lam, cvaccs ] = lambdaCV(@(x,y,l)(MT_FD(x,y,l,'eta',eta,'prior',prior)),@(obj,x,y)(multibinloss(obj,x,y,'type','FD')),data,labels,cv_params{:});
+            out=MT_FD(data,labels,'lambda',lam,'prior',prior,'eta',eta,'verbose',v);
+            out.lambda=lam;
+            out.cvacc=cvaccs;
+        else
+            out=MT_FD(data,labels,'prior',prior,'eta',eta,'verbose',v);
+        end
 end
 
-out.lambda=lam;
-out.cvacc=cvaccs;
+
 end

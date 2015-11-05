@@ -9,11 +9,11 @@ function [l, cvout] = lambdaCV(f,loss,data,labels,varargin)
 %                   measure
 %       data:    data
 %       labels:  Class labels {1,-1}
-% 
+%
 % Optional Arguments
 %       n:             Number of CV loops (default 10)
 %       parallel:    Parallel loops (<num cores> | none)
-%       lrange:     Vector of lambda values (default exp([-10:0.5:-0.5 -0.01])
+%       lrange:     Vector of lambda values (default exp(-4:0.5:4.5))
 %       v:             boolean, verbose (default 0)
 %       bootstrap: boolean, bootstrap to equalize classes (default 1)
 
@@ -41,7 +41,7 @@ end
 
 lrange = invarargin(varargin,'lrange');
 if isempty(lrange)
-    lrange=exp([-10:0.5:-0.5 -0.01]);
+    lrange=exp(-4:0.5:4.5);
 end
 
 %% Main code
@@ -60,6 +60,7 @@ for i = 1:length(data)
         labels{i}=labels{i}(bstrap);
     end
 end
+
 cvacc=zeros(n,length(lrange));
 
 if ~parallel
@@ -115,10 +116,10 @@ else
         %partition outside parallel loop
         par_testind={};
         for d = 1:length(data)
-                % Choose test indices without trying to balance classes
-                n_test=floor(size(data{d},sten)/n);
-                par_testind{d}=test_indices{d}(randperm(length(test_indices{d}),n_test));
-                test_indices{d}= setdiff(test_indices{d},par_testind{d});
+            % Choose test indices without trying to balance classes
+            n_test=floor(size(data{d},sten)/n);
+            par_testind{d}=test_indices{d}(randperm(length(test_indices{d}),n_test));
+            test_indices{d}= setdiff(test_indices{d},par_testind{d});
         end
         
         parfor it =1:n

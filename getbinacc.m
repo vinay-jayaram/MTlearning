@@ -1,8 +1,8 @@
-% Accuracy for a block trial. MT_getacc(X,y,w,alpha).
+% Accuracy for a block trial. getbinacc(X,y,w,alpha).
 function [acc] = getbinacc(X,y,w,alpha)
 ntrials=length(y);
 if isempty(alpha)
-    acc=(sum(sign(X*w)==sign(y))/ntrials);
+    acc=(sum(sign(w'*X)'==sign(y))/ntrials);
 else
     trialacc=zeros(ntrials,1);
     for i = 1:ntrials
