@@ -5,6 +5,15 @@ elseif ndims(X{1})==3
     T='FD';
 end
 
+
+% correct for cases when there is only one test trial
+if isfield(obj,'alpha') && length(y)==1
+    T='FD';
+    for i = 1:length(X)
+        X{i}=reshape(X{i},size(X{i},1),size(X{i},2),1);
+    end
+end
+
 sacc=zeros(length(X),1);
 for i = 1:length(X)
     switch T

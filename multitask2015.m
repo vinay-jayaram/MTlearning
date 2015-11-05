@@ -2,31 +2,40 @@ function [out] = multitask2015(data, labels, varargin)
 %% Documentation
 % function [out] = multitask2015(data, labels, varargin)
 % Vinay Jayaram, 14.10.15, high-level implementation of Jayaram et al.
-% 2016
+% 2016 (please see paper for terminology)
 %
 % ***Man I really wish MATLAB had good argument parsing
 %
 %*** note: so far there is no possibility of regression, just binary
 %classification. This can easily be added by the user.
 %
-% If data is 3D, it assumes frequency decomposition (and that the structure
-% is [electrodes,features,trials]. 2D assumed structure is
+% If elements of data cell array are 3D, it assumes frequency decomposition (and that the structure
+% is [electrodes,features,trials]). 2D assumed structure is
 % [features,trials]
 %
 % Optional arguments:
-% 'eta'        - Define eta for learning algorithm (default 0.001)
-% 'alpha_init' - Vector of size chans to initialize alpha with
-% 'verbose'    - Turn on or off messages
-% 'rr_init' - boolean, initialize with ridge regression solution,
-% overwrites alpha_init
-% 'prior' - None | cell array of objects, does ridge regression with
-% specified prior
-% 'cv_params' - cell array of varargin to give cross-validation function
-% 'cv' - cross validate lambda instead of ML update (binary 1/0) [ default
-% 0]
-% 'boostrap' - Equalize classes if not equalized, default 0
-% 'out_acc' - Return cross-validated multi-task accuracy over training data using
-% learned lambda, default 0
+% 'eta'               - Define eta for learning algorithm (default 0.001)
+% 'alpha_init'     - Vector of size chans to initialize alpha with
+% 'verbose'       - Turn on or off messages
+% 'rr_init'           - boolean, initialize with ridge regression solution,
+%                         overwrites alpha_init
+% 'prior'             - None | cell array of objects, does ridge regression with
+%                         specified prior
+% 'cv_params'   - cell array of varargin to give cross-validation function
+% 'cv'                 - cross validate lambda instead of ML update (binary 1/0) [ default
+%                         0]
+% 'boostrap'      - Equalize classes if not equalized, default 0
+% 'out_acc'        - Return cross-validated multi-task accuracy over training data using
+%                         learned lambda, default 0
+
+% Output:
+% 'out'               - Struct with fields denoting prior values, as well as the
+%                         optimal lambda (other fields possible). In the 2D
+%                         data case mu/sigma are the mean/covariance of the
+%                         weights. In the FD case, mean/sigma of the
+%                         features are in out.weight and mean/sigma of the
+%                         channels are in out.alpha
+
 
 %% Argument parsing
 

@@ -26,6 +26,12 @@ MT=multitask2015(X(1:end-1),y(1:end-1),'verbose',1,'out_acc',1);
 % solution with ridge-regression prior
 MT_rr=multitask2015(X(1:end-1),y(1:end-1),'rr_init',1,'verbose',1);
 
+% train on half the data
+MT_s7=multitask2015(X{end}(:,:,11:20),y{end}(11:20),'prior',MT_rr);
+
+% test the other half
+acc=getbinacc(X{end}(:,:,1:10),y{end}(1:10),MT_s7.weight.mat, MT_s7.alpha.mat);
+
 % cross-validated accuracy for all
 [priors,accs]=MTdataset(X,y,{'verbose',1});
 
