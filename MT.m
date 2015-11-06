@@ -48,7 +48,6 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Variable Initialization
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-lambda=1;
 out.sigma=priors{2};
 out.mu=priors{1};
 subjects=length(X);

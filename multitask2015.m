@@ -27,7 +27,7 @@ function [out] = multitask2015(data, labels, varargin)
 % 'boostrap'      - Equalize classes if not equalized, default 0
 % 'out_acc'        - Return cross-validated multi-task accuracy over training data using
 %                         learned lambda, default 0
-
+%
 % Output:
 % 'out'               - Struct with fields denoting prior values, as well as the
 %                         optimal lambda (other fields possible). In the 2D
@@ -38,6 +38,13 @@ function [out] = multitask2015(data, labels, varargin)
 
 
 %% Argument parsing
+
+% quick sanity check
+for i = 1:length(data)
+    if size(data{i},ndims(data{i})) ~= length(labels{i})
+        error('In dataset %d, number of trials does not equal number of labels',i);
+    end
+end
 
 %first wrap data/labels if they're not in cell arrays
 if ~iscell(data)
