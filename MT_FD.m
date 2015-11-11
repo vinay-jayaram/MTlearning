@@ -152,7 +152,7 @@ while sum(or(abs(weight.mu) > mu_prev+PCT*mu_prev,abs(weight.mu) < mu_prev-PCT*m
     %update Sigma
     temp=weight.mat-repmat(weight.mu,1,subjects);
     atemp=alpha.mat-repmat(alpha.mu,1,subjects);
-    % constrain covariance to be trace one (only for one of them though)
+    % standard ML sigma update
     weight.sigma= (1/(size(temp,2)-1))*(temp*temp')+ eta*eye(length(weight.sigma));
     alpha.sigma= (1/(size(atemp,2)-1))*(atemp*atemp')+ eta*eye(length(alpha.sigma));
     count=count+1;

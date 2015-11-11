@@ -6,8 +6,9 @@ elseif ndims(X{1})==3
 end
 
 
-% correct for cases when there is only one test trial
-if isfield(obj,'alpha') && length(y)==1
+% correct for cases when there is only one test trial and so ndims is not
+% caught properly
+if isfield(obj,'alpha') && length(y)==1 && strcmp(T,'')
     T='FD';
     for i = 1:length(X)
         X{i}=reshape(X{i},size(X{i},1),size(X{i},2),1);

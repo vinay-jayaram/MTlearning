@@ -39,12 +39,7 @@ function [out] = multitask2015(data, labels, varargin)
 
 %% Argument parsing
 
-% quick sanity check
-for i = 1:length(data)
-    if size(data{i},ndims(data{i})) ~= length(labels{i})
-        error('In dataset %d, number of trials does not equal number of labels',i);
-    end
-end
+
 
 %first wrap data/labels if they're not in cell arrays
 if ~iscell(data)
@@ -53,6 +48,13 @@ end
 
 if ~iscell(labels)
     labels={labels};
+end
+
+% quick sanity check
+for i = 1:length(data)
+    if size(data{i},ndims(data{i})) ~= length(labels{i})
+        error('In dataset %d, number of trials does not equal number of labels',i);
+    end
 end
 
 switch ndims(data{1})
@@ -163,7 +165,7 @@ end
 
 %sample with replacement to equalize classes if bs option passed
 if lambdaML &&bs
-        disp('Bootstrapping before prior computation');
+    disp('Bootstrapping before prior computation');
     sten=ndims(data{1});
     cln(1:(ndims(data{1})-1)) = {':'};
     for i = 1:length(data)
@@ -174,7 +176,7 @@ if lambdaML &&bs
             data{i}=data{i}(cln{:});
             labels{i}=labels{i}(bstrap);
         end
-    end    
+    end
 end
 
 switch T
