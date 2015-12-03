@@ -32,6 +32,8 @@ end
 bs = invarargin(varargin,'bootstrap');
 if isempty(bs)
     bs=0;
+elseif bs == 1
+    disp('Bootstrapping within CV function');
 end
 
 parallel = invarargin(varargin,'parallel');
@@ -52,12 +54,20 @@ end
 sten=ndims(data{1});
 cln(1:(ndims(data{1})-1)) = {':'};
 for i = 1:length(data)
-    if sum(labels{i}==1) ~= sum(labels{i}==-1)  && bs == 1
-        [~, tmax]=sort(sum(labels{i}==1),sum(labels{i}==-1));
-        bstrap = randi(length(labels{i}),tmax,1);
+    if sum(sign(labels{i})==1) ~= sum(sign(labels{i})==-1)  && bs == 1
+        ordinalVec=[1,-1];
+        [tmax,tind]=max([sum(sign(labels{i})==1),sum(sign(labels{i})==-1)]);
+        smallerInd=find(sign(labels{i})==(-ordinalVec(tind)));
+        biggerInd=setdiff(1:length(labels{i}),smallerInd)';
+        cln(sten)={smallerInd};
+        bigcln=cln;
+        bigcln(sten)={biggerInd};
+        smallerY=labels{i}(smallerInd);
+        smallerX=data{i}(cln{:});
+        bstrap = randi(length(smallerInd),tmax,1);
         cln(sten)={bstrap};
-        data{i}=data{i}(cln{:});
-        labels{i}=labels{i}(bstrap);
+        data{i}=cat(ndims(data{i}),data{i}(bigcln{:}),smallerX(cln{:}));
+        labels{i}=cat(1,labels{i}(biggerInd),smallerY(bstrap));
     end
 end
 

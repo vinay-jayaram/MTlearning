@@ -1,4 +1,8 @@
 % Accuracy for a block trial. getbinacc(X,y,w,alpha).
+% X: 2-D or 3-D matrix, last dimension trials
+% y: labels equal to number of trials
+% w: weight vector
+% alpha: channel weight vector in the case of FD; give [] if none
 function [acc] = getbinacc(X,y,w,alpha)
 ntrials=length(y);
 if isempty(alpha)

@@ -156,10 +156,10 @@ else
     prior=temp;
 end
 
-if length(data)==1
-    if v; disp('One task detected; cross-validation turned on'); end
-    lambdaML=0;
-end
+% if length(data)==1
+%     if v; disp('One task detected; cross-validation turned on'); end
+%     lambdaML=0;
+% end
 
 %% Main control
 
@@ -169,12 +169,20 @@ if lambdaML &&bs
     sten=ndims(data{1});
     cln(1:(ndims(data{1})-1)) = {':'};
     for i = 1:length(data)
-        if sum(labels{i}==1) ~= sum(labels{i}==-1)
-            [~, tmax]=sort(sum(labels{i}==1),sum(labels{i}==-1));
-            bstrap = randi(length(labels{i}),tmax,1);
+        if sum(sign(labels{i})==1) ~= sum(sign(labels{i})==-1)
+            ordinalVec=[1,-1];
+            [tmax,tind]=max([sum(sign(labels{i})==1),sum(sign(labels{i})==-1)]);
+            smallerInd=find(sign(labels{i})==(-ordinalVec(tind)));
+            biggerInd=setdiff(1:length(labels{i}),smallerInd)';
+            cln(sten)={smallerInd};
+            bigcln=cln;
+            bigcln(sten)={biggerInd};
+            smallerY=labels{i}(smallerInd);
+            smallerX=data{i}(cln{:});
+            bstrap = randi(length(smallerInd),tmax,1);
             cln(sten)={bstrap};
-            data{i}=data{i}(cln{:});
-            labels{i}=labels{i}(bstrap);
+            data{i}=cat(ndims(data{i}),data{i}(bigcln{:}),smallerX(cln{:}));
+            labels{i}=cat(1,labels{i}(biggerInd),smallerY(bstrap));
         end
     end
 end
@@ -199,7 +207,7 @@ switch T
 end
 
 % Warning: The below counts as double-dipping. We use all the data to learn
-% a lambda then cross-validate with the learned lambda to generate decision functions. 
+% a lambda then cross-validate with the learned lambda to generate decision functions.
 % The best way to ensure your results are reasonable is to train the lambda
 % on a separate dataset from the test
 if outacc && lambdaML
@@ -240,9 +248,9 @@ if outacc && lambdaML
         end
         cvacc(:,it)=multibinloss(ret_obj,testdata,testlabels);
     end
-    out.trainacc=cvacc;    
+    out.trainacc=cvacc;
 elseif outacc && ~lambdaML
-        out.trainacc=out.cvacc;
+    out.trainacc=out.cvacc;
 end
 
 end

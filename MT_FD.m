@@ -33,6 +33,9 @@ w = warning ('off','MATLAB:nearlySingularMatrix');
 eta = invarargin(varargin,'eta');
 if isempty(eta)
     eta=1e-3;
+    itEta=1;
+else
+    itEta=0;
 end
 
 verbose = invarargin(varargin,'verbose');
@@ -114,8 +117,8 @@ while sum(or(abs(weight.mu) > mu_prev+PCT*mu_prev,abs(weight.mu) < mu_prev-PCT*m
                 aX_s(j,:)=alpha.mat(:,i)'*reshape(X{i}(:,:,j),chans,features);
             end
             % update W
-            weight.mat(:,i)=(lambda*weight.sigma*(aX_s'*aX_s)+eye(size(aX_s,2)))\...
-                (lambda*weight.sigma*aX_s'*y{i}+weight.mu);
+            weight.mat(:,i)=((1/lambda)*weight.sigma*(aX_s'*aX_s)+eye(size(aX_s,2)))\...
+                ((1/lambda)*weight.sigma*aX_s'*y{i}+weight.mu);
             
             % update alpha with old W
             wX_s=zeros(chans,ntrials);
@@ -123,11 +126,11 @@ while sum(or(abs(weight.mu) > mu_prev+PCT*mu_prev,abs(weight.mu) < mu_prev-PCT*m
                 wX_s(:,j)=reshape(X{i}(:,:,j),chans,features)*weight.mat(:,i);
             end
             % update alpha
-            alpha.mat(:,i)=(lambda*alpha.sigma*(wX_s*wX_s')+eye(size(wX_s,1)))\...
-                (lambda*alpha.sigma*wX_s*y{i}+alpha.mu);
-                       
+            alpha.mat(:,i)=((1/lambda)*alpha.sigma*(wX_s*wX_s')+eye(size(wX_s,1)))\...
+                ((1/lambda)*alpha.sigma*wX_s*y{i}+alpha.mu);
+            
             % EXPERIMENTAL--norm alpha to 1
-            %alpha.mat(:,i)=alpha.mat(:,i)/norm(alpha.mat(:,i));
+            alpha.mat(:,i)=alpha.mat(:,i)/norm(alpha.mat(:,i));
             
             
             count2=count2+1;
@@ -142,33 +145,55 @@ while sum(or(abs(weight.mu) > mu_prev+PCT*mu_prev,abs(weight.mu) < mu_prev-PCT*m
     %%%%%%%%%%%%%%%
     
     %if only one subject, break
-    if subjects == 1
+    if subjects == 1 && ~lambdaML
         break
+    elseif subjects == 1 && lambdaML
+        res=0;
+        for j = 1:size(X{1},3)
+            res=res+(y{1}(j)-(alpha.mat'*squeeze(X{1}(:,:,j))*weight.mat))^2;
+        end
+        ntrials=size(X{1},3);
+        lambda=res/ntrials;
+        % If iterating make the loop until lambda stabilizes
+        if lambda + 0.01*lambda < lambda_prev || lambda - 0.01*lambda > lambda_prev
+            mu_prev=ones(length(out.sigma),1);
+        end
+    else
+        weight.mu=mean(weight.mat,2);
+        alpha.mu=mean(alpha.mat,2);
+        
+        %update Sigma
+        temp=weight.mat-repmat(weight.mu,1,subjects);
+        atemp=alpha.mat-repmat(alpha.mu,1,subjects);
+        
+        % adaptive eta **separate for weight/alpha??
+        if itEta
+            e = eig((1/(size(temp,2)-1))*(temp*temp'));
+            eta=0.1*min(abs(e));
+        end
+        %     % standard ML sigma update
+        %     weight.sigma= (1/(size(temp,2)-1))*(temp*temp')+ eta*eye(length(weight.sigma));
+        %     alpha.sigma= (1/(size(atemp,2)-1))*(atemp*atemp')+ eta*eye(length(alpha.sigma));
+        % trace-normalized sigma update
+        weight.sigma= (1/trace(temp*temp'))*(temp*temp')+ eta*eye(length(weight.sigma));
+        alpha.sigma= (1/trace(atemp*atemp'))*(atemp*atemp')+ eta*eye(length(alpha.sigma));
+        
+        if lambdaML
+            res=0;
+            ntrials=0;
+            for i = 1:subjects
+                for j = 1:size(X{i},3)
+                    res=res+(y{i}(j)-(alpha.mat(:,i)'*squeeze(X{i}(:,:,j))*weight.mat(:,i)))^2;
+                end
+                ntrials=ntrials+size(X{i},3);
+            end
+            lambda=res/ntrials;
+        end
     end
     
-    weight.mu=mean(weight.mat,2);
-    alpha.mu=mean(alpha.mat,2);
-    
-    %update Sigma
-    temp=weight.mat-repmat(weight.mu,1,subjects);
-    atemp=alpha.mat-repmat(alpha.mu,1,subjects);
-    % standard ML sigma update
-    weight.sigma= (1/(size(temp,2)-1))*(temp*temp')+ eta*eye(length(weight.sigma));
-    alpha.sigma= (1/(size(atemp,2)-1))*(atemp*atemp')+ eta*eye(length(alpha.sigma));
+
     count=count+1;
     
-    % update lambda
-    if lambdaML
-        res=0;
-        ntrials=0;
-        for i = 1:subjects
-            for j = 1:size(X{i},3)
-                res=res+(y{i}(j)-(alpha.mat(:,i)'*squeeze(X{i}(:,:,j))*weight.mat(:,i)))^2;
-            end
-            ntrials=ntrials+size(X{i},3);
-        end
-        lambda=ntrials/(2*res);
-    end
 end
 out.weight=weight;
 out.alpha=alpha;

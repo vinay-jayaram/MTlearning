@@ -16,6 +16,11 @@ function [out] = MT(X,y,varargin)
 %   'lambda':    Define external lambda and don't use ML update
 %   'verbose':   Print convergence information per iteration
 
+%Note: If 'lambda' is a single value, we assume a single lambda for the
+% all datasets. If lambda is a vector then it is assumed to be the
+% dataset-specific lambdas, and if it does not match the length of X an
+% error is thrown.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Argument parsing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -23,6 +28,9 @@ function [out] = MT(X,y,varargin)
 eta = invarargin(varargin,'eta');
 if isempty(eta)
     eta=1e-3;
+    itEta=1;
+else
+    itEta=0;
 end
 
 verbose = invarargin(varargin,'verbose');
@@ -48,6 +56,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Variable Initialization
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+lambda_prev=0;
 out.sigma=priors{2};
 out.mu=priors{1};
 subjects=length(X);
@@ -69,37 +78,54 @@ while sum(or(abs(out.mu) > (mu_prev+0.01*mu_prev),abs(out.mu) < (mu_prev-0.01*mu
         fprintf('it: %d, lambda %d, diff %d\n',count,lambda, sum(or(abs(out.mu) > (mu_prev+0.01*mu_prev),abs(out.mu) < (mu_prev-0.01*mu_prev))));
     end
     mu_prev = abs(out.mu);
-    
+    lambda_prev=lambda;
     %update W
     for i = 1:subjects
         Ax=out.sigma*X{i};
-        out.mat(:,i)=(lambda*Ax*X{i}'+eye(size(X{i},1)))\(lambda*Ax*y{i}+out.mu);
+        out.mat(:,i)=((1/lambda)*Ax*X{i}'+eye(size(X{i},1)))\((1/lambda)*Ax*y{i}+out.mu);
     end
     
     % if only one subject, break to make ridge regression
-    if subjects == 1
+    if subjects == 1 && ~lambdaML
         break
-    end
-    
-    %update mu
-    out.mu=mean(out.mat,2);
-    
-    % de-mean data for covariance calculation
-    temp=out.mat-repmat(out.mu,1,subjects);
-    
-    % standard ML covariance update
-    out.sigma= (1/(size(temp,2)-1))*(temp*temp')+ eta*eye(length(out.sigma));
-    
-    % update lambda
-    if lambdaML
-        res=0;
-        ntrials=0;
-        for i = 1:subjects
-            res=res+sum((y{i}'-out.mat(:,i)'*X{i}).^2);
-            ntrials=ntrials+size(X{i},2);
+    elseif subjects == 1 && lambdaML
+        lambda=2*sum((y{1}'-out.mat'*X{1}).^2)/size(X{1},2);
+        % if iterating make the loop until lambda stabilizes
+        if lambda + 0.01*lambda < lambda_prev || lambda - 0.01*lambda > lambda_prev
+            mu_prev=ones(length(out.sigma),1);
         end
-        lambda=ntrials/(2*res);
+    else
+        %update mu
+        out.mu=mean(out.mat,2);
+        
+        % de-mean data for covariance calculation
+        temp=out.mat-repmat(out.mu,1,subjects);
+        
+        % adaptive eta
+        if itEta
+            e = eig((1/(size(temp,2)-1))*(temp*temp'));
+            eta=0.1*min(abs(e));
+        end
+        
+        % standard ML covariance update
+        out.sigma= (1/(size(temp,2)-1))*(temp*temp')+ eta*eye(length(out.sigma));
+        
+        %     % Trace-normalized update
+        %         out.sigma=(1/trace(temp*temp'))*(temp*temp')+eta*eye(length(out.sigma));
+        % update lambda
+        if lambdaML
+            res=0;
+            ntrials=0;
+            for i = 1:subjects
+                res=res+sum((y{i}'-out.mat(:,i)'*X{i}).^2);
+                ntrials=ntrials+size(X{i},2);
+            end
+            lambda=2*res/ntrials;
+        end
     end
+    
+    
+    
     
     % Increment counter
     count=count+1;
