@@ -132,6 +132,7 @@ while sum(or(abs(weight.mu) > mu_prev+PCT*mu_prev,abs(weight.mu) < mu_prev-PCT*m
             % EXPERIMENTAL--norm alpha to 1
             alpha.mat(:,i)=alpha.mat(:,i)/norm(alpha.mat(:,i));
             
+            %a test!
             
             count2=count2+1;
             if ~mod(count2,100) && verbose
