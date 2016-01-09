@@ -1,19 +1,6 @@
-fband=[1 5 8 14 20 30 40 50];
-X={};
-y={};
-
-for i = 1:7
-    for j = 2
-        z=mbci;
-        loadstr=sprintf('/agbs/bcigroup/Studies/z009_ALSCogBCI/data/LEK2/LEK2%.3d/LEK2S%.3dR0%d.dat',i,i,j);
-        z.load('file',{loadstr},'protocol','LEKBCITrainingProtocol');
-        z.rmchans('chans',125:130);
-        z.cav;
-        z.bandpower('freqs',fband);
-        X=cat(2,X,{cat(3,z.spectrum{end}.features{1},z.spectrum{end}.features{2})});
-        y=cat(2,y,{cat(1,-ones(size(z.spectrum{end}.features{1},3),1),ones(size(z.spectrum{end}.features{2},3),1))});
-    end
-end
+% X must be a cell array of 3D matrices with dimensions (channels, bandpower/time
+% domain features, trials) and y must be a cell array of equal size with elements 
+  % of size (trials,1). Test data will be included as of Friday 16th
 
 % solution with uninformed spatial prior (note that accuracies are *not*
 % transfer learning accuracies but rather multitask accuracies. For
