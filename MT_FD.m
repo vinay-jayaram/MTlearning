@@ -79,6 +79,7 @@ alpha.mu=priors{2,1};
 alpha.sigma=priors{2,2};
 subjects=length(X);
 count=0;
+lambda_prev = 0;
 features=length(weight.mu);
 weight.mat=zeros(length(weight.sigma),subjects);
 MAX_ITERATIONS=5000;
@@ -92,6 +93,7 @@ while sum(or(abs(weight.mu) > mu_prev+PCT*mu_prev,abs(weight.mu) < mu_prev-PCT*m
     fprintf('it: %d, lambda %d, diff %d\n',count,lambda, sum(or(abs(weight.mu) > (mu_prev+PCT*mu_prev),abs(weight.mu) < (mu_prev-PCT*mu_prev))));
     end
     mu_prev=abs(weight.mu);
+    lambda_prev = lambda;
     %%%%%%%%%%%%%%
     % W and alpha update
     %%%%%%%%%%%%%%
@@ -157,7 +159,7 @@ while sum(or(abs(weight.mu) > mu_prev+PCT*mu_prev,abs(weight.mu) < mu_prev-PCT*m
         lambda=res/ntrials;
         % If iterating make the loop until lambda stabilizes
         if lambda + 0.01*lambda < lambda_prev || lambda - 0.01*lambda > lambda_prev
-            mu_prev=ones(length(out.sigma),1);
+            mu_prev=ones(length(weight.sigma),1);
         end
     else
         weight.mu=mean(weight.mat,2);
