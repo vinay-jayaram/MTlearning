@@ -38,11 +38,43 @@ if isempty(verbose)
     verbose=0;
 end
 
+dimreduce=invarargin(varargin,'dimreduce');
+if isempty(dimreduce)
+    dimreduce=1;
+end
+
+% Dimentionality reduction step for all data
+V=[];
+if dimreduce 
+    Xall = cat(2,X{:});
+    Xcov = cov((Xall-kron(mean(Xall,2),ones(1,size(Xall,2))))');
+    [V,D] = eig(Xcov);
+    if min(diag(D)) > 0
+        D = D / sum(D);
+        V = V(:,diag(D)>0.00001);
+    else
+        D2 = D(:,diag(D)>0);
+        D = D / sum(sum(D2));
+        V = V(:,diag(D)>0.00001);
+        
+    end
+end
+
 priors = invarargin(varargin,'prior');
-if isempty(priors)
+if ~isempty(priors) && size(priors,2)==3
+    V=priors{1,3};
+end
+if ~isempty(V)
+    for i = 1:length(X)
+        X{i} = V'*X{i};
+    end
+end
+if isempty(priors) || size(priors{1},1) ~= size(X{1},1)
     priors{1}=zeros(size(X{1},1),1);
     priors{2}=eye(size(X{1},1));
 end
+
+
 
 inlambda=invarargin(varargin,'lambda');
 if isempty(inlambda)
@@ -52,6 +84,8 @@ else
     lambda=inlambda;
     lambdaML=0;
 end
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Variable Initialization
@@ -69,6 +103,8 @@ MAX_ITERATIONS=5000;
 % when some dimensions do not converge. The current is demanding that 99%
 % of dimensions vary less than 1% over two iterations
 max_vary=floor(0.01*length(out.mu));
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Main loop
@@ -134,4 +170,13 @@ out.lambda=lambda;
 if count == MAX_ITERATIONS
     warning('FailedConvergence','convergence failed')
 end
+
+if dimreduce
+    out.mu = out.mu;
+    out.sigma = out.sigma;
+    out.mat = V*out.mat;
+    out.dimreduce = V;
+end
+
+
 end

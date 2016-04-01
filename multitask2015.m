@@ -14,7 +14,7 @@ function [out] = multitask2015(data, labels, varargin)
 % [features,trials]
 %
 % Optional arguments:
-% 'eta'               - Define eta for learning algorithm (default 0.001)
+% 'eta'               - Define eta for learning algorithm (default is data-driven)
 % 'alpha_init'     - Vector of size chans to initialize alpha with
 % 'verbose'       - Turn on or off messages
 % 'rr_init'           - boolean, initialize with ridge regression solution,
@@ -79,7 +79,7 @@ end
 
 eta = invarargin(varargin,'eta');
 if isempty(eta)
-    eta=1e-3;
+    eta=[];
 end
 
 lambdaML = invarargin(varargin,'cv');
@@ -98,7 +98,7 @@ cv_params=invarargin(varargin,'cv_params');
 if isempty(cv_params)
     cv_params={};
 else
-    lambdaML=1;
+    lambdaML=0;
 end
 cv_params=cat(2,cv_params,{'verbose',v,'bootstrap',bs});
 
@@ -151,7 +151,10 @@ else
             temp{1,1}=prior.weight.mu;
             temp{1,2}=prior.weight.sigma;
             temp{2,1}=prior.alpha.mu;
-            temp{2,2}=prior.alpha.sigma;
+            temp{2,2}=prior.alpha.sigma; 
+    end
+    if isfield(prior,'dimreduce')
+        temp{1,3}=prior.dimreduce;
     end
     prior=temp;
 end
