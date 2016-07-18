@@ -14,6 +14,7 @@ classdef MT_baseclass < handle
         nIts
         lambdaML
         trAdjust
+        verbose
     end
     
     methods
@@ -22,19 +23,36 @@ classdef MT_baseclass < handle
         %              Initialization
         %%%%%%%%%%%%%%%%%%%%%%
         
-        function obj = MT_baseclass(nIts, lambaML, trAdjust, cvParams)
+        function obj = MT_baseclass(varargin)
             % Constructor to initialize a MT model.
             %
             % Output:
             %    obj: This instance.
             
+                        obj.nIts = invarargin(varargin,'n_its');
+            if isempty(obj.nIts)
+                obj.nIts = 1000;
+            end
+            obj.lambdaML = invarargin(varargin,'lambda_ml');
+            if isempty(obj.lambdaML)
+                obj.lambdaML = 1;
+            end
+            obj.trAdjust = invarargin(varargin,'tr_adjust');
+            if isempty(obj.trAdjust)
+                obj.trAdjust = 0;
+            end
+            obj.cvParams = invarargin(varargin,'cv_params');
+            if isempty(obj.cvParams)
+                obj.cvParams = {};
+            end
+            obj.verbose = invarargin(varargin,'verbose');
+            if isempty(obj.verbose)
+                obj.verbose=0;
+            end
+            
             obj.prior = struct();
             obj.lambda = 1;
             obj.eta = 1e-3; % Should this be editable?
-            obj.nIts = nIts;
-            obj.lambdaML = lambaML;
-            obj.trAdjust = trAdjust;
-            obj.cvParams = cvParams;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%
@@ -74,7 +92,9 @@ classdef MT_baseclass < handle
                 if convergence
                     break
                 end
+                if childObj.verbose
                 fprintf('[MT prior] iteration %d, remaining %d\n', its, num);
+                end
             end
             
             prior = childObj.prior;
@@ -84,7 +104,9 @@ classdef MT_baseclass < handle
         function [] = update_lambda(obj,err)
             if obj.lambdaML
                 obj.lambda = 2*mean(err); % ...i *think* this is right
+                if obj.verbose
                 fprintf('lambda: %.2e\n', obj.lambda);
+                end
             end
         end
 

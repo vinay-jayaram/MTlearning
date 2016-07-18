@@ -19,26 +19,8 @@ classdef MT_FD_linear < MT_baseclass
             %     Xcell: cell array of datasets
             %     ycell: cell array of labels
             %     varargin: Flags 
-        
-            nIts = invarargin(varargin,'n_its');
-            if isempty(nIts)
-                nIts = 1000;
-            end
-            lambdaML = invarargin(varargin,'lambda_ml');
-            if isempty(lambdaML)
-                lambdaML = 1;
-            end
-            trAdjust = invarargin(varargin,'tr_adjust');
-            if isempty(trAdjust)
-                trAdjust = 0;
-            end
-            cvParams = invarargin(varargin,'cv_params');
-            if isempty(cvParams)
-                cvParams = {};
-            end
-
             % construct superclass
-            obj@MT_baseclass(nIts, lambdaML, trAdjust, cvParams)
+            obj@MT_baseclass(varargin{:})
 
             obj.maxItVar = invarargin(varargin,'max_it_var');
             if isempty(obj.maxItVar)
@@ -145,7 +127,7 @@ classdef MT_FD_linear < MT_baseclass
             out = struct();
 
             % switch input labels using instance dictionary
-            y_train = MT_baseclass.swap_labels(y, obj.labels);
+            y_train = MT_baseclass.swap_labels(y, obj.labels, 'to');
             
             if ML
                 prev_loss = 0;
@@ -157,7 +139,9 @@ classdef MT_FD_linear < MT_baseclass
                     [out.w, out.loss] = obj.fit_model(X, y_train, out.lambda);
                     out.lambda = 2*out.loss;
                     count = count+1;
+                    if obj.verbose
                     fprintf('[new task fitting] ML lambda Iteration %d, lambda %.4e \n', count, out.lambda);
+                    end
                 end
             else
                 out.lambda = lambdaCV(@(X,y,lambda)(obj.fit_model(X{1},y{1},lambda)),...
@@ -197,7 +181,7 @@ classdef MT_FD_linear < MT_baseclass
            for i = 1:length(y)
                y(i) = sign(w{2}'*X(:,:,i)*w{1});
            end
-           y = MT_baseclass.switch_labels(y, labels, 'from');
+           y = MT_baseclass.swap_labels(y, labels, 'from');
         end
     end
 end

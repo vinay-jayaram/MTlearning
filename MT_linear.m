@@ -24,26 +24,9 @@ classdef MT_linear < MT_baseclass
             %     Xcell: cell array of datasets
             %     ycell: cell array of labels
             %     varargin: Flags 
-        
-            nIts = invarargin(varargin,'n_its');
-            if isempty(nIts)
-                nIts = 1000;
-            end
-            lambdaML = invarargin(varargin,'lambda_ml');
-            if isempty(lambdaML)
-                lambdaML = 1;
-            end
-            trAdjust = invarargin(varargin,'tr_adjust');
-            if isempty(trAdjust)
-                trAdjust = 0;
-            end
-            cvParams = invarargin(varargin,'cv_params');
-            if isempty(cvParams)
-                cvParams = {};
-            end
 
             % construct superclass
-            obj@MT_baseclass(nIts, lambdaML, trAdjust, cvParams)
+            obj@MT_baseclass(varargin{:})
             
             obj.dimReduce = invarargin(varargin, 'dim_reduce');
             if isempty(obj.dimReduce)
@@ -146,7 +129,9 @@ classdef MT_linear < MT_baseclass
                     [out.w, out.loss] = obj.fit_model(X, y_train, out.lambda);
                     out.lambda = 2*out.loss;
                     count = count+1;
+                    if obj.verbose
                     fprintf('[new task fitting] ML lambda Iteration %d, lambda %.4e \n', count, out.lambda);
+                    end
                 end
             else
                 out.lambda = lambdaCV(@(X,y,lambda)(obj.fit_model(X{1},y{1},lambda)),...

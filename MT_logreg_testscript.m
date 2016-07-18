@@ -57,9 +57,9 @@ fprintf('linear prior accuracy: %.2f\n', acc*100);
 
 % % Adapt model with trained prior to subject-specific dataset and print
 % % accuracy on the training task data
-out = FD.fit_new_task(X_s, y_s);
+out = FD.fit_new_task(X_s, y_s,'ml',1);
 fprintf('New FD task training accuracy: %.2f\n', mean(y_s == out.predict(X_s))*100);
-out = linear.fit_new_task(X2d_s, y_s);
+out = linear.fit_new_task(X2d_s, y_s,'ml',1);
 fprintf('New task training accuracy: %.2f\n', mean(y_s == out.predict(X2d_s))*100);
 
 
