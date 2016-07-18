@@ -12,7 +12,7 @@ classdef MT_FD_linear < MT_baseclass
     end
     
     methods
-        function obj = MT_linear(varargin)
+        function obj = MT_FD_linear(varargin)
             % Constructor for multitask linear regression. 
             %
             % Input:
@@ -71,16 +71,23 @@ classdef MT_FD_linear < MT_baseclass
                 ycell{i} = reshape(ycell{i},[],1);
             end
             
-            obj.labels = unique(cat(1,ycell{:}));
-            assert(length(obj.labels) == 2, 'more than two classes present in the data');
-            
+            assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
+            obj.labels = [unique(cat(1,ycell{:})),[1;-1]];
+            % replace labels with {1,-1} for algorithm
+            for i = 1:length(ycell)
+                tmp = zeros(size(ycell{i}));
+                for j = 1:2
+                    tmp(ycell{i}==obj.labels(j,1))=obj.labels(j,2);
+                end
+                ycell{i} = tmp;
+            end
             obj.w = zeros(size(Xcell{1},2),1);
             obj.a = zeros(size(Xcell{1},1),1);
             
             prior = fit_prior@MT_baseclass(obj, Xcell, ycell);
         end
         
-        function b = convergence(obj, prior, prev_prior)
+        function [b, conv] = convergence(obj, prior, prev_prior)
             mu = abs(prior.weight.mu);
             mu_prev = abs(prev_prior.weight.mu);
             converged_weight = sum(or(mu > (mu_prev+obj.maxItVar*mu_prev), mu < (mu_prev - obj.maxItVar * mu_prev)));
@@ -89,22 +96,23 @@ classdef MT_FD_linear < MT_baseclass
             mu_prev = abs(prev_prior.alpha.mu);
             converged_alpha = sum(or(mu > (mu_prev+obj.maxItVar*mu_prev), mu < (mu_prev - obj.maxItVar * mu_prev)));
             b = (converged_alpha + converged_weight) < (obj.maxNumVar * (length(obj.a) + length(obj.w)));
+            conv = (converged_alpha + converged_weight);
         end
         
         function [w, error] = fit_model(obj, X, y, lambda)
             features = size(X,2);
             chans = size(X,1);
-            w{1} = zeros(chans,1);
-            w{2} = zeros(features,1); % I'm not convinced that a cell array is best here...but.....does it make sense to store things
+            w{2} = ones(chans,1);
+            w{1} = zeros(features,1); % I'm not convinced that a cell array is best here...but.....does it make sense to store things
                                                        % as rank-1 matrices
                                                        % and SVD them every
                                                        % time we want the
                                                        % components?
                                                        
-            w_prev=ones(chans,1);
+            w_prev=ones(features,1);
             count2=0;
             ntrials=size(X,3);
-            while sum(or(abs(w{1}) > (w_prev+obj.maxItvar*w_prev),abs(w{1}) < (w_prev-obj.maxItvar*w_prev)))>0 && count2< obj.nIts
+            while sum(or(abs(w{1}) > (w_prev+obj.maxItVar*w_prev),abs(w{1}) < (w_prev-obj.maxItVar*w_prev)))>0 && count2< obj.nIts
                 
                 w_prev = abs(w{1});
                 
@@ -135,6 +143,36 @@ classdef MT_FD_linear < MT_baseclass
             error = obj.loss(w, X, y);
         end
         
+        function out = fit_new_task(obj, X, y, varargin)
+            % argument parsing
+            
+            ML = invarargin(varargin,'ml');
+            if isempty(ML)
+                ML = 0;
+            end
+            out = struct();
+
+            if ML
+                prev_loss = 0;
+                out.lambda = 1;
+                out.loss = 1;
+                count = 0;
+                while abs(prev_loss - out.loss) > obj.maxItVar * prev_loss && count < obj.nIts
+                    prev_loss = out.loss;
+                    [out.w, out.loss] = obj.fit_model(X, y, out.lambda);
+                    out.lambda = 2*out.loss;
+                    count = count+1;
+                    fprintf('[new task fitting] ML lambda Iteration %d, lambda %.4e \n', count, out.lambda);
+                end
+            else
+                out.lambda = lambdaCV(@(X,y,lambda)(obj.fit_model(X{1},y{1},lambda)),...
+                    @(w, X, y)(obj.loss(w, X{1}, y{1})),{X},{y});
+                [out.w, out.loss] = obj.fit_model(X, y, out.lambda);
+            end
+            
+            out.predict = @(X)(obj.predict(out.w, X, obj.labels));
+            out.training_acc = mean(y == out.predict(X));
+        end
         
         function [] = update_prior(obj, outputCell)
             W = [];
@@ -160,12 +198,12 @@ classdef MT_FD_linear < MT_baseclass
             
             % regularize as necessary
             if rank(C_W) < size(C_W,1)
-                e = eig((1/(size(temp,2)-1))*(temp*temp'));
+                e = eig((1/(size(temp_W,2)-1))*(temp_W*temp_W'));
                 C_W = C_W + mean(e(e>0))*eye(size(C_W,1));
             end
             
             if rank(C_A) < size(C_A,1)
-                e = eig((1/(size(temp,2)-1))*(temp*temp'));
+                e = eig((1/(size(temp_A,2)-1))*(temp_A*temp_A'));
                 C_A = C_A + mean(e(e>0))*eye(size(C_A,1));
             end
             
@@ -179,9 +217,22 @@ classdef MT_FD_linear < MT_baseclass
         function L = loss(w, X, y)
             L = 0;
             for i = 1:length(y)
-                % implements straight squared loss
+                % implements straight (average) squared loss
                 L = L + (w{2}'*X(:,:,i)*w{1}-y(i))^2;
             end
+            L = L/length(y);
+        end
+        
+       function y = predict(w, X, labels)
+           y = zeros(size(X,3),1);
+           for i = 1:length(y)
+               y(i) = sign(w{2}'*X(:,:,i)*w{1});
+           end
+           tmp = zeros(size(y));
+            for i = 1:2
+                tmp(y == labels(i,2)) = labels(i,1);
+            end
+            y = tmp;
         end
     end
 end

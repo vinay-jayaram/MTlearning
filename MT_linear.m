@@ -114,7 +114,7 @@ classdef MT_linear < MT_baseclass
             prior = fit_prior@MT_baseclass(obj, Xcell, ycell);
         end
         
-        function b = convergence(obj, prior, prev_prior)
+        function [b, converged] = convergence(obj, prior, prev_prior)
             mu = abs(prior.mu);
             mu_prev = abs(prev_prior.mu);
             converged = sum(or(mu > (mu_prev+obj.maxItVar*mu_prev), mu < (mu_prev - obj.maxItVar * mu_prev)));
@@ -142,10 +142,11 @@ classdef MT_linear < MT_baseclass
                 out.loss = 1;
                 count = 0;
                 while abs(prev_loss - out.loss) > obj.maxItVar * prev_loss && count < obj.nIts
+                    prev_loss = out.loss;
                     [out.w, out.loss] = obj.fit_model(X, y, out.lambda);
-                    out.lambda = out.loss;
+                    out.lambda = 2*out.loss;
                     count = count+1;
-                    fprintf('[new task fitting] ML lambda Iteration %d, lambda %.2f \n', count, out.lambda);
+                    fprintf('[new task fitting] ML lambda Iteration %d, lambda %.4e \n', count, out.lambda);
                 end
             else
                 out.lambda = lambdaCV(@(X,y,lambda)(obj.fit_model(X{1},y{1},lambda)),...
@@ -182,15 +183,17 @@ classdef MT_linear < MT_baseclass
     
     methods(Static)
         function L = loss(w, X, y)
-            % implements straight squared loss
-            L = norm(X'*w-y,2);
+            % implements straight (average) squared loss
+            L = norm(X'*w-y,2)/length(y);
         end
         
         function y = predict(w, X, labels)
             y = sign(X'*w);
+            tmp = zeros(size(y));
             for i = 1:2
-                y(y == labels(i,2)) = labels(i,1);
+                tmp(y == labels(i,2)) = labels(i,1);
             end
+            y=tmp;
         end
         
     end
