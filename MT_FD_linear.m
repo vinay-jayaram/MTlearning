@@ -28,10 +28,6 @@ classdef MT_FD_linear < MT_baseclass
             if isempty(lambdaML)
                 lambdaML = 1;
             end
-            etaML = invarargin(varargin,'eta_ml');
-            if isempty(etaML)
-                etaML = 0;
-            end
             trAdjust = invarargin(varargin,'tr_adjust');
             if isempty(trAdjust)
                 trAdjust = 0;
@@ -42,7 +38,7 @@ classdef MT_FD_linear < MT_baseclass
             end
 
             % construct superclass
-            obj@MT_baseclass(nIts, lambdaML, etaML, trAdjust, cvParams)
+            obj@MT_baseclass(nIts, lambdaML, trAdjust, cvParams)
 
             obj.maxItVar = invarargin(varargin,'max_it_var');
             if isempty(obj.maxItVar)
@@ -144,7 +140,7 @@ classdef MT_FD_linear < MT_baseclass
         end
         
         function out = fit_new_task(obj, X, y, varargin)
-            % argument parsing
+            % fit_new_task(obj, X, y, varargin)
             
             ML = invarargin(varargin,'ml');
             if isempty(ML)
@@ -181,34 +177,8 @@ classdef MT_FD_linear < MT_baseclass
                 W = cat(2,W,outputCell{i}{1});
                 A = cat(2,A, outputCell{i}{2});
             end
-            obj.prior.weight.mu = mean(W,2);
-            obj.prior.alpha.mu = mean(A,2);
-            
-            temp_W = W - repmat(obj.prior.weight.mu,1,length(outputCell));
-            temp_A = A - repmat(obj.prior.alpha.mu,1,length(outputCell));
-            if obj.trAdjust
-                % Trace-normalized update
-                C_W = (1/trace(temp_W*temp_W'))*(temp_W*temp_W');
-                C_A = (1/trace(temp_A*temp_A'))*(temp_A*temp_A');
-            else
-                % standard ML covariance update
-                 C_W = (1/(size(temp_W,2)-1))*(temp_W*temp_W');
-                 C_A = (1/(size(temp_A,2)-1))*(temp_A*temp_A');
-            end
-            
-            % regularize as necessary
-            if rank(C_W) < size(C_W,1)
-                e = eig((1/(size(temp_W,2)-1))*(temp_W*temp_W'));
-                C_W = C_W + mean(e(e>0))*eye(size(C_W,1));
-            end
-            
-            if rank(C_A) < size(C_A,1)
-                e = eig((1/(size(temp_A,2)-1))*(temp_A*temp_A'));
-                C_A = C_A + mean(e(e>0))*eye(size(C_A,1));
-            end
-            
-            obj.prior.weight.sigma = C_W;
-            obj.prior.alpha.sigma = C_A;
+            obj.prior.weight = MT_baseclass.update_gaussian_prior(W, obj.trAdjust);
+            obj.prior.alpha = MT_baseclass.update_gaussian_prior(A, obj.trAdjust);
         end
         
     end

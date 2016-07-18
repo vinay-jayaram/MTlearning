@@ -33,10 +33,6 @@ classdef MT_linear < MT_baseclass
             if isempty(lambdaML)
                 lambdaML = 1;
             end
-            etaML = invarargin(varargin,'eta_ml');
-            if isempty(etaML)
-                etaML = 0;
-            end
             trAdjust = invarargin(varargin,'tr_adjust');
             if isempty(trAdjust)
                 trAdjust = 0;
@@ -47,7 +43,7 @@ classdef MT_linear < MT_baseclass
             end
 
             % construct superclass
-            obj@MT_baseclass(nIts, lambdaML, etaML, trAdjust, cvParams)
+            obj@MT_baseclass(nIts, lambdaML, trAdjust, cvParams)
             
             obj.dimReduce = invarargin(varargin, 'dim_reduce');
             if isempty(obj.dimReduce)
@@ -107,7 +103,7 @@ classdef MT_linear < MT_baseclass
                 for i = 1:length(Xcell)
                     Xcell{i} = obj.W'*Xcell{i};
                 end
-                obj.w = zeros(size(obj.W,1),1);
+                obj.w = zeros(size(obj.W,2),1);
             else
                 obj.W = [];
             end
@@ -135,6 +131,10 @@ classdef MT_linear < MT_baseclass
                 ML = 0;
             end
             out = struct();
+            
+            if obj.dimReduce
+                X = obj.W'*X;
+            end
 
             if ML
                 prev_loss = 0;
@@ -153,30 +153,22 @@ classdef MT_linear < MT_baseclass
                     @(w, X, y)(obj.loss(w, X{1}, y{1})),{X},{y});
                 [out.w, out.loss] = obj.fit_model(X, y, out.lambda);
             end
-            
-            out.predict = @(X)(obj.predict(out.w, X, obj.labels));
+            if obj.dimReduce
+                out.predict = @(X)(obj.predict(out.w, obj.W'*X, obj.labels));
+            else
+                out.predict = @(X)(obj.predict(out.w, X, obj.labels));
+            end
             out.training_acc = mean(y == out.predict(X));
         end
         
         function [] = update_prior(obj, outputCell)
             W = cat(2,outputCell{:});
-            obj.prior.mu = mean(W,2);
-            temp = W - repmat(obj.prior.mu,1,length(outputCell));
-            if obj.trAdjust
-                % Trace-normalized update
-                C = (1/trace(temp*temp'))*(temp*temp');
-            else
-                % standard ML covariance update
-                 C = (1/(size(temp,2)-1))*(temp*temp');
-            end
+            obj.prior = MT_baseclass.update_gaussian_prior(W, obj.trAdjust);
             
-            % regularize as necessary
-            if rank(C) < size(C,1)
-                e = eig((1/(size(temp,2)-1))*(temp*temp'));
-                C = C + mean(e(e>0))*eye(size(C,1));
+            if obj.dimReduce
+                obj.prior.mu = obj.W*obj.prior.mu;
+                obj.prior.sigma = obj.W*obj.prior.mu*obj.W';
             end
-            
-            obj.prior.sigma = C;
         end
         
     end
@@ -184,7 +176,7 @@ classdef MT_linear < MT_baseclass
     methods(Static)
         function L = loss(w, X, y)
             % implements straight (average) squared loss
-            L = norm(X'*w-y,2)/length(y);
+            L = (norm(X'*w-y,2)^2)/length(y);
         end
         
         function y = predict(w, X, labels)

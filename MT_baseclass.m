@@ -13,12 +13,16 @@ classdef MT_baseclass < handle
         % and switches
         nIts
         lambdaML
-        etaML
         trAdjust
     end
     
     methods
-        function obj = MT_baseclass(nIts, lambaML, etaML, trAdjust, cvParams)
+        
+        %%%%%%%%%%%%%%%%%%%%%%
+        %              Initialization
+        %%%%%%%%%%%%%%%%%%%%%%
+        
+        function obj = MT_baseclass(nIts, lambaML, trAdjust, cvParams)
             % Constructor to initialize a MT model.
             %
             % Output:
@@ -29,21 +33,25 @@ classdef MT_baseclass < handle
             obj.eta = 1e-3; % Should this be editable?
             obj.nIts = nIts;
             obj.lambdaML = lambaML;
-            obj.etaML = etaML;
             obj.trAdjust = trAdjust;
             obj.cvParams = cvParams;
         end
+        
+        %%%%%%%%%%%%%%%%%%%%%%
+        %            Update functions
+        %%%%%%%%%%%%%%%%%%%%%%
         
         function prior = fit_prior(childObj, Xcell, ycell)
             % Function to fit prior given another class that defines loss
             % and parameter estimation steps
             %
             % Output:
-            %   superObj: This instance
+            %   prior: struct with final prior values.
             
             
             % initialize prior
             childObj.init_prior();
+            childObj.lambda = 1;
             its = 0;
             error = zeros(length(Xcell),1);
             outputs = cell(length(Xcell),1);
@@ -59,14 +67,14 @@ classdef MT_baseclass < handle
                 for i = 1: length(Xcell)
                     [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
                 end
-                childObj.update_prior(outputs);
                 childObj.update_lambda(error);
-                childObj.update_eta();
+                childObj.update_prior(outputs);
                 its = its + 1;
-                if childObj.convergence(childObj.prior, prev_prior)
+                [convergence, num] = childObj.convergence(childObj.prior, prev_prior);
+                if convergence
                     break
                 end
-                disp(its);
+                fprintf('[MT prior] iteration %d, remaining %d\n', its, num);
             end
             
             prior = childObj.prior;
@@ -75,30 +83,64 @@ classdef MT_baseclass < handle
         
         function [] = update_lambda(obj,err)
             if obj.lambdaML
-                obj.lambda = mean(err); % ...i *think* this is right
-            end
-        end
-        
-        function [] = update_eta(obj,eta)
-            if obj.etaML
-                obj.eta = eta;
+                obj.lambda = 2*mean(err); % ...i *think* this is right
+                fprintf('lambda: %.2e\n', obj.lambda);
             end
         end
 
+        %%%%%%%%%%%%%%%%%%%%%%
+        %         Printing  and access functions
+        %%%%%%%%%%%%%%%%%%%%%%
         
         function [] = printswitches(obj)
             % function to print all the options for this implementation
             fprintf('[MT base] number of iterations: %d\n',obj.nIts);
             fprintf('[MT base] ML estimation of lambda: %d\n',obj.lambdaML);
-            fprintf('[MT base] iterative eta update: %d\n',obj.etaML);
             fprintf('[MT base] trace-adjusted covariance update: %d\n',obj.trAdjust);
         end
+        
+
         
         function [] = printprior(obj)
             print(obj.prior);
         end
         
+                function P = getprior(obj)
+            P = obj.prior;
+        end
+        
+        function [] = setprior(obj,P)
+            obj.prior = P;
+        end
+        
     end
     
+    methods(Static)
+        %%%%%%%%%%%%%%%%%%%%%%
+        %                       Generic helper functions
+        %%%%%%%%%%%%%%%%%%%%%%
+        
+        function prior_struct = update_gaussian_prior(M, trAdjust)
+            prior_struct.mu = mean(M,2);
+            temp = M - repmat(prior_struct.mu,1, size(M,2));
+            
+            if trAdjust
+                % Trace-normalized update
+                C = (1/trace(temp*temp'))*(temp*temp');
+            else
+                % standard ML covariance update
+                C = (1/(size(temp,2)-1))*(temp*temp');
+            end
+            
+            % regularize as necessary
+            if rank(C) < size(C,1)
+                e = eig((1/(size(temp,2)-1))*(temp*temp'));
+                C = C + min(e(e>0))*eye(size(C,1));
+            end
+            
+            prior_struct.sigma = C;
+        end
+        
+    end
 end
 
