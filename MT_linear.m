@@ -79,11 +79,7 @@ classdef MT_linear < MT_baseclass
             obj.labels = [unique(cat(1,ycell{:})),[1;-1]];
             % replace labels with {1,-1} for algorithm
             for i = 1:length(ycell)
-                tmp = zeros(size(ycell{i}));
-                for j = 1:2
-                    tmp(ycell{i}==obj.labels(j,1))=obj.labels(j,2);
-                end
-                ycell{i} = tmp;
+                ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
             end
             obj.w = zeros(size(Xcell{1},1),1);
             
@@ -136,22 +132,26 @@ classdef MT_linear < MT_baseclass
                 X = obj.W'*X;
             end
 
+            % switch input labels using instance dictionary
+            y_train = MT_baseclass.swap_labels(y, obj.labels,'to');
             if ML
-                prev_loss = 0;
+                prev_w = ones(size(X,1),1);
                 out.lambda = 1;
                 out.loss = 1;
                 count = 0;
-                while abs(prev_loss - out.loss) > obj.maxItVar * prev_loss && count < obj.nIts
-                    prev_loss = out.loss;
-                    [out.w, out.loss] = obj.fit_model(X, y, out.lambda);
+                out.w = zeros(size(X,1),1);
+                while sum(or(abs(out.w) > (prev_w+obj.maxItVar*prev_w), abs(out.w) < (prev_w - obj.maxItVar * prev_w)))...
+                         && count < obj.nIts
+                    prev_w = abs(out.w);
+                    [out.w, out.loss] = obj.fit_model(X, y_train, out.lambda);
                     out.lambda = 2*out.loss;
                     count = count+1;
                     fprintf('[new task fitting] ML lambda Iteration %d, lambda %.4e \n', count, out.lambda);
                 end
             else
                 out.lambda = lambdaCV(@(X,y,lambda)(obj.fit_model(X{1},y{1},lambda)),...
-                    @(w, X, y)(obj.loss(w, X{1}, y{1})),{X},{y});
-                [out.w, out.loss] = obj.fit_model(X, y, out.lambda);
+                    @(w, X, y)(obj.loss(w, X{1}, y{1})),{X},{y_train});
+                [out.w, out.loss] = obj.fit_model(X, y_train, out.lambda);
             end
             if obj.dimReduce
                 out.predict = @(X)(obj.predict(out.w, obj.W'*X, obj.labels));
@@ -180,12 +180,7 @@ classdef MT_linear < MT_baseclass
         end
         
         function y = predict(w, X, labels)
-            y = sign(X'*w);
-            tmp = zeros(size(y));
-            for i = 1:2
-                tmp(y == labels(i,2)) = labels(i,1);
-            end
-            y=tmp;
+            y = MT_baseclass.swap_labels(sign(X'*w), labels, 'from');
         end
         
     end

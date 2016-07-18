@@ -135,12 +135,34 @@ classdef MT_baseclass < handle
             % regularize as necessary
             if rank(C) < size(C,1)
                 e = eig((1/(size(temp,2)-1))*(temp*temp'));
-                C = C + min(e(e>0))*eye(size(C,1));
+                if ~sum(e>0)
+                    eta = 1;
+                else
+                    eta = min(e(e>0));
+                end
+                C = C + eta*eye(size(C,1));
             end
             
             prior_struct.sigma = C;
         end
-        
+
+        function y_switched = swap_labels(y, labels, forward)
+            switch forward
+                case 'to'
+                ind = 1;
+                case 'from'
+                    
+                ind = 2;
+                otherwise
+                    error('last argument must be either to or from');
+            end
+            tmp = zeros(size(y));
+            for i = 1:2
+                tmp(y == labels(i,ind)) = labels(i,setdiff([1,2],ind));
+            end
+            y_switched = tmp;
+        end
+            
     end
 end
 
