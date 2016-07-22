@@ -29,7 +29,7 @@ classdef MT_baseclass < handle
             % Output:
             %    obj: This instance.
             
-                        obj.nIts = invarargin(varargin,'n_its');
+            obj.nIts = invarargin(varargin,'n_its');
             if isempty(obj.nIts)
                 obj.nIts = 1000;
             end
@@ -68,7 +68,7 @@ classdef MT_baseclass < handle
             
             
             % initialize prior
-            childObj.init_prior();
+            %childObj.init_prior();
             childObj.lambda = 1;
             its = 0;
             error = zeros(length(Xcell),1);
@@ -81,9 +81,11 @@ classdef MT_baseclass < handle
             
             % loop to iterate update steps 
             while its < childObj.nIts
+                fprintf('MT Iteration %d...\n', its)
                 prev_prior = childObj.prior;
                 for i = 1: length(Xcell)
                     [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
+                    %error(i) = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
                 end
                 childObj.update_lambda(error);
                 childObj.update_prior(outputs);
@@ -96,9 +98,7 @@ classdef MT_baseclass < handle
                 fprintf('[MT prior] iteration %d, remaining %d\n', its, num);
                 end
             end
-            
             prior = childObj.prior;
-            
         end
         
         function [] = update_lambda(obj,err)

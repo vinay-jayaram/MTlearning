@@ -1,4 +1,4 @@
-classdef MT_linear < MT_baseclass
+classdef MT_logistic < MT_baseclass
     
     properties(GetAccess = 'public', SetAccess = 'public')
         % vector that contains unique labels for prediction
@@ -9,20 +9,16 @@ classdef MT_linear < MT_baseclass
         w
         % binary flag for dimensionality reduction
         dimReduce
-        % binary flag for LDA labelling
-%         LDA
         % parameters for convergence
         maxItVar % maximum variation between iterations before convergence
         maxNumVar % maximum number of dimensions allowed to not converge
     end
     
     methods
-        function obj = MT_linear(d, varargin)
-            % Constructor for multitask linear regression. 
+        function obj = MT_logistic(d, varargin)
+            % Constructor for multitask linear regression.
             %
             % Input:
-            %     Xcell: cell array of datasets
-            %     ycell: cell array of labels
             %     varargin: Flags 
 
             % construct superclass
@@ -60,20 +56,19 @@ classdef MT_linear < MT_baseclass
             assert(length(Xcell) > 1, 'only one dataset provided');
             assert(size(Xcell{1}, 1) == length(obj.prior.mu), ...
                 'Feature dimensionality of the data does not match this model');
-            for i = 1:length(Xcell)
+            for i = 1:length(Xcell) 
                 assert(size(Xcell{i},2) == length(ycell{i}), 'number of datapoints and labels differ');
                 ycell{i} = reshape(ycell{i},[],1);
             end
-            
-            
             assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
-            obj.labels = [unique(cat(1,ycell{:})),[1;-1]];
-            % replace labels with {1,-1} for algorithm
+            
+            % replace labels with {1,0} for algorithm
+            obj.labels = [unique(cat(1,ycell{:})),[1;0]];
             for i = 1:length(ycell)
                 ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
             end
             obj.w = zeros(size(Xcell{1},1),1);
-            
+            % Perform PCA
             if obj.dimReduce
                 Xall = cat(2,Xcell{:});
                 Xcov = cov((Xall-kron(mean(Xall,2),ones(1,size(Xall,2))))');
@@ -94,6 +89,7 @@ classdef MT_linear < MT_baseclass
             else
                 obj.W = [];
             end
+            
             prior = fit_prior@MT_baseclass(obj, Xcell, ycell);
         end
         
@@ -105,9 +101,43 @@ classdef MT_linear < MT_baseclass
         end
         
         function [w, error] = fit_model(obj, X, y, lambda)
-            Ax=obj.prior.sigma*X;
-            w = ((1 / lambda)*Ax*X'+eye(size(X,1)))\((1 / lambda)*Ax*y + obj.prior.mu);
-            error = obj.loss(w, X, y);
+            % Perform gradient descent based minimization of logistic regression 
+            % with robust error-adaptive learning rate.
+            
+            % Setup learning parameters
+            eta = 0.1;
+            inc_rate = 0.1;
+            dec_rate = 0.025;
+            max_iter = 10000;
+            % Initialize weights and compute initial error
+            w = obj.prior.mu;
+            ce_curr =  crossentropy_loss(obj.logistic_func(X, w), y);
+            % Run gradient descent until convergence or max_iter is reached
+            for iter = 1:max_iter
+                % Backup previous state
+                w_prev = w;
+                ce_prev = ce_curr;
+                % Perform gradient descent step on spectral and spatial weights
+                grad_w = obj.crossentropy_grad(X, y, w, lambda);
+                w = w - eta .* grad_w;
+                % Check for convergence
+                ce_curr = crossentropy_loss(obj.logistic_func(X, w), y);
+                diff_ce = abs(ce_prev - ce_curr);
+                if diff_ce < 1e-4
+                    break;
+                end
+                % Adapt learning rate
+                if ce_curr >= ce_prev
+                    % Decrease learning rate and withdraw iteration
+                    eta = dec_rate*eta;
+                    w = w_prev;
+                    ce_curr = ce_prev;
+                else
+                    % Increase learning rate additively
+                    eta = eta + inc_rate*eta;
+                end
+            end
+            error = ce_curr;
             obj.w = w;
         end
         
@@ -125,9 +155,8 @@ classdef MT_linear < MT_baseclass
             if obj.dimReduce
                 X = obj.W'*X;
             end
-
             % switch input labels using instance dictionary
-            obj.labels = [unique(cat(1,y)), [1; -1]];
+            obj.labels = [unique(cat(1,y)), [1; 0]];
             y_train = MT_baseclass.swap_labels(y, obj.labels,'to');
             if ML
                 prev_w = ones(size(X,1),1);
@@ -170,22 +199,37 @@ classdef MT_linear < MT_baseclass
             obj.w = obj.prior.mu;
         end
         
-        function y = predict(obj, X, varargin)            
+        
+        function grad = crossentropy_grad(obj, X, y, w, lam)
+            pred = MT_logistic.logistic_func(X, w);
+            % Compute plain crossentropy gradient
+            grad = sum(repmat(pred - y, 1, length(w)).*X', 1)';
+            % Add regularization term (avoiding inversion of the covariance prior)
+            grad = obj.prior.sigma * grad + lam*(w - obj.prior.mu);
+        end
+        
+        function y = predict(obj, X, varargin)
             labels = invarargin(varargin, 'labels');
             if isempty(labels)
                 labels = obj.labels;
             else
-                labels = [labels,[1;-1]];
+                labels = [labels,[0;1]];
             end
             y = MT_baseclass.swap_labels(sign(X'*obj.w), labels, 'from');
+            pred = MT_logistic.logistic_func(X, obj.w);
+            y = MT_baseclass.swap_labels(pred > 0.5, labels, 'from');
         end
         
     end
     
     methods(Static)
         function L = loss(w, X, y)
-            % implements straight (average) squared loss
-            L = (norm(X'*w-y,2)^2)/length(y);
+            L = crossentropy_loss(MT_logistic.logistic_func(X, w), y);
+        end
+        
+        function h = logistic_func(X, w)
+        %FD_LOGISTIC_FUNC Bilinear version of the logistic sigmoid function
+            h = 1.0 ./ (1 + exp(-X'*w));
         end
         
     end

@@ -1,12 +1,12 @@
-clear;
-clc;
+clear
+clc
 fprintf('Script started...\n')
 
 % X must be a cell array of 3D matrices with dimensions (trials, channels, bandpower/time
 % domain features) and y must be a cell array of equal size with elements 
 % of size (trials,1).
 data = load('MotorImageryData.mat');
-s = 1; % Index of subject-specific dataset to use
+s = 4; % Index of subject-specific dataset to use
 % Extract task-datasets for MTL omitting the subject-spefific one (haha "spefific" sounds way too funny, I will keep that typo xD)
 T_X = {}; % MTL task datasets (cell array of 3D matrices)
 T_X2 = {};
@@ -32,36 +32,55 @@ X2d_s = reshape(X_s, size(X_s,1)*size(X_s,2),[]);
 X2d_s(1409:end,:) = [];
 y_s = (double(data.Y(s, :))'+1)*0.5;
 
+% Instantiate models
+n_its = 5;
 
-% % Instantiate model
- FD = MT_FD_linear('tr_adjust',1);
- linear = MT_linear('dim_reduce',0);
-disp('Confirm prior computation switches: FD');
- FD.printswitches;
+linreg = MT_linear(1408, 'dim_reduce', 0, 'n_its', n_its);
 disp('Confirm prior computation switches: linear');
- linear.printswitches;
- 
- 
+linreg.printswitches;
 
-% % Train Gaussian prior from task datasets with MTL and print prior accuracy
-% % on unseen subject-specific dataset
-FD.fit_prior(T_X, T_y);
-FD_prior = FD.getprior;
-acc = mean(FD.predict({FD_prior.weight.mu, FD_prior.alpha.mu},X_s, FD.labels) == y_s);
-fprintf('FD prior accuracy: %.2f\n', acc*100);
+logreg = MT_logistic(1408, 'dim_reduce', 0, 'n_its', n_its);
+disp('Confirm prior computation switches: logistic');
+logreg.printswitches;
 
-linear.fit_prior(T_X2d, T_y);
-linear_prior = linear.getprior;
-acc = mean(linear.predict(linear_prior.mu,X2d_s, linear.labels) == y_s);
-fprintf('linear prior accuracy: %.2f\n', acc*100);
+FD_linreg = MT_FD_model(12, 128, 'linear', 'n_its', n_its, 'tr_adjust', 1);
+disp('Confirm prior computation switches: FD linear');
+FD_linreg.printswitches;
 
-% % Adapt model with trained prior to subject-specific dataset and print
-% % accuracy on the training task data
-out = FD.fit_new_task(X_s, y_s,'ml',1);
-fprintf('New FD task training accuracy: %.2f\n', mean(y_s == out.predict(X_s))*100);
-out = linear.fit_new_task(X2d_s, y_s,'ml',1);
-fprintf('New task training accuracy: %.2f\n', mean(y_s == out.predict(X2d_s))*100);
+FD_logreg = MT_FD_model(12, 128, 'logistic', 'n_its', n_its, 'tr_adjust', 0);
+disp('Confirm prior computation switches: FD logistic');
+FD_logreg.printswitches;
 
+fprintf('\n###\n')
+fprintf('Training linreg prior...\n')
+linreg.fit_prior(T_X2d, T_y);
+fprintf('Training logreg prior...\n')
+logreg.fit_prior(T_X2d, T_y);
+fprintf('Training FD linreg prior...\n')
+FD_linreg.fit_prior(T_X, T_y);
+fprintf('Training FD logreg prior...\n')
+FD_logreg.fit_prior(T_X, T_y);
 
-fprintf('Script finished!\n')
-% PS: I'm still laughing about the "spefific" typo - I should really stop reading it out loud
+acc = mean(linreg.predict(X2d_s) == y_s);
+fprintf('Linreg prior accuracy: %.2f\n', acc*100);
+acc = mean(logreg.predict(X2d_s) == y_s);
+fprintf('Logreg prior accuracy: %.2f\n', acc*100);
+acc = mean(FD_linreg.predict(X_s) == y_s);
+fprintf('Linreg FD prior accuracy: %.2f\n', acc*100);
+acc = mean(FD_logreg.predict(X_s) == y_s);
+fprintf('Logreg FD prior accuracy: %.2f\n', acc*100);
+
+out = linreg.fit_new_task(X2d_s, y_s, 'ml', 1);
+acc = mean(linreg.predict(X2d_s) == y_s);
+fprintf('New task training accuracy (linreg): %.2f\n', acc*100);
+out = logreg.fit_new_task(X2d_s, y_s, 'ml', 1);
+acc = mean(logreg.predict(X2d_s) == y_s);
+fprintf('New task training accuracy (logreg): %.2f\n', acc*100);
+out = FD_linreg.fit_new_task(X_s, y_s, 'ml', 1);
+acc = mean(FD_linreg.predict(X_s) == y_s);
+fprintf('New task training accuracy (FD linreg): %.2f\n', acc*100);
+out = FD_logreg.fit_new_task(X_s, y_s, 'ml', 1);
+acc = mean(FD_logreg.predict(X_s) == y_s);
+fprintf('New task training accuracy (FD logreg): %.2f\n', acc*100);
+
+fprintf('Script finished!\n');
