@@ -61,26 +61,29 @@ FD_linreg.fit_prior(T_X, T_y);
 fprintf('Training FD logreg prior...\n')
 FD_logreg.fit_prior(T_X, T_y);
 
-acc = mean(linreg.predict(X2d_s) == y_s);
+acc = mean(linreg.prior_predict(X2d_s) == y_s);
 fprintf('Linreg prior accuracy: %.2f\n', acc*100);
-acc = mean(logreg.predict(X2d_s) == y_s);
+acc = mean(logreg.prior_predict(X2d_s) == y_s);
 fprintf('Logreg prior accuracy: %.2f\n', acc*100);
-acc = mean(FD_linreg.predict(X_s) == y_s);
+
+% note: this is unclear notation for FD. Make a new function to make it
+% more obvious what is happening here. 
+acc = mean(FD_linreg.prior_predict(X_s) == y_s);
 fprintf('Linreg FD prior accuracy: %.2f\n', acc*100);
-acc = mean(FD_logreg.predict(X_s) == y_s);
+acc = mean(FD_logreg.prior_predict(X_s) == y_s);
 fprintf('Logreg FD prior accuracy: %.2f\n', acc*100);
 
 out = linreg.fit_new_task(X2d_s, y_s, 'ml', 1);
-acc = mean(linreg.predict(X2d_s) == y_s);
+acc = mean(out.predict(X2d_s) == y_s);
 fprintf('New task training accuracy (linreg): %.2f\n', acc*100);
 out = logreg.fit_new_task(X2d_s, y_s, 'ml', 1);
-acc = mean(logreg.predict(X2d_s) == y_s);
+acc = mean(out.predict(X2d_s) == y_s);
 fprintf('New task training accuracy (logreg): %.2f\n', acc*100);
 out = FD_linreg.fit_new_task(X_s, y_s, 'ml', 1);
-acc = mean(FD_linreg.predict(X_s) == y_s);
+acc = mean(out.predict(X_s) == y_s);
 fprintf('New task training accuracy (FD linreg): %.2f\n', acc*100);
 out = FD_logreg.fit_new_task(X_s, y_s, 'ml', 1);
-acc = mean(FD_logreg.predict(X_s) == y_s);
+acc = mean(out.predict(X_s) == y_s);
 fprintf('New task training accuracy (FD logreg): %.2f\n', acc*100);
 
 fprintf('Script finished!\n');

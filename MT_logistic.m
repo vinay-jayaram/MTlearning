@@ -86,6 +86,7 @@ classdef MT_logistic < MT_baseclass
                     Xcell{i} = obj.W'*Xcell{i};
                 end
                 obj.w = zeros(size(obj.W,2),1);
+                obj.init_prior(size(obj.W,2),0);
             else
                 obj.W = [];
             end
@@ -142,8 +143,13 @@ classdef MT_logistic < MT_baseclass
         end
         
         function out = fit_new_task(obj, X, y, varargin)
+            if obj.dimReduce
+            assert(size(X, 1) == size(obj.W,1), ...
+                'Feature dimensionality of the data does not match this model');
+            else
             assert(size(X, 1) == length(obj.prior.mu), ...
                 'Feature dimensionality of the data does not match this model');
+            end
             % argument parsing
             
             ML = invarargin(varargin,'ml');
@@ -151,12 +157,12 @@ classdef MT_logistic < MT_baseclass
                 ML = 0;
             end
             out = struct();
-            
+            Xoriginal = X;
             if obj.dimReduce
                 X = obj.W'*X;
             end
             % switch input labels using instance dictionary
-            obj.labels = [unique(cat(1,y)), [1; 0]];
+
             y_train = MT_baseclass.swap_labels(y, obj.labels,'to');
             if ML
                 prev_w = ones(size(X,1),1);
@@ -184,17 +190,12 @@ classdef MT_logistic < MT_baseclass
             else
                 out.predict = @(X)(obj.predict(out.w, X, obj.labels));
             end
-            out.training_acc = mean(y == out.predict(X));
+            out.training_acc = mean(y == out.predict(Xoriginal));
         end
         
         function [] = update_prior(obj, outputCell)
             W = cat(2,outputCell{:});
             obj.prior = MT_baseclass.update_gaussian_prior(W, obj.trAdjust);
-            
-            if obj.dimReduce
-                obj.prior.mu = obj.W*obj.prior.mu;
-                obj.prior.sigma = obj.W*obj.prior.mu*obj.W';
-            end
             % Set mean weights as new model weights
             obj.w = obj.prior.mu;
         end
@@ -208,17 +209,7 @@ classdef MT_logistic < MT_baseclass
             grad = obj.prior.sigma * grad + lam*(w - obj.prior.mu);
         end
         
-        function y = predict(obj, X, varargin)
-            labels = invarargin(varargin, 'labels');
-            if isempty(labels)
-                labels = obj.labels;
-            else
-                labels = [labels,[0;1]];
-            end
-            y = MT_baseclass.swap_labels(sign(X'*obj.w), labels, 'from');
-            pred = MT_logistic.logistic_func(X, obj.w);
-            y = MT_baseclass.swap_labels(pred > 0.5, labels, 'from');
-        end
+
         
     end
     
@@ -230,6 +221,11 @@ classdef MT_logistic < MT_baseclass
         function h = logistic_func(X, w)
         %FD_LOGISTIC_FUNC Bilinear version of the logistic sigmoid function
             h = 1.0 ./ (1 + exp(-X'*w));
+        end
+        
+        function y = predict(w, X, labels)
+            pred = MT_logistic.logistic_func(X, w);
+            y = MT_baseclass.swap_labels(pred > 0.5, labels, 'from');
         end
         
     end

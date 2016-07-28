@@ -15,6 +15,7 @@ classdef MT_baseclass < handle
         lambdaML
         trAdjust
         verbose
+        parallel %0 or number of workers. Does not delete pool. 
     end
     
     methods
@@ -49,7 +50,10 @@ classdef MT_baseclass < handle
             if isempty(obj.verbose)
                 obj.verbose=0;
             end
-            
+            obj.parallel = invarargin(varargin,'parallel');
+            if isempty(obj.parallel)
+                obj.parallel = 0;
+            end
             obj.prior = struct();
             obj.lambda = 1;
             obj.eta = 1e-3; % Should this be editable?
@@ -74,6 +78,18 @@ classdef MT_baseclass < handle
             error = zeros(length(Xcell),1);
             outputs = cell(length(Xcell),1);
             
+            % if possible initialize parallel pool
+            if childObj.parallel
+                p = gcp('nocreate');
+                if isempty(p)
+                    try
+                    p = parpool(childObj.parallel);
+                    catch Ex
+                        error(Ex.message);
+                    end
+                end
+            end
+            
             % If no ML, cross-validate for appropriate lambda value
             if ~childObj.lambdaML
                 error('Currently only supports ML estimation of the lambda value for prior calculation (it works better anyway)');
@@ -81,11 +97,18 @@ classdef MT_baseclass < handle
             
             % loop to iterate update steps 
             while its < childObj.nIts
-                fprintf('MT Iteration %d...\n', its)
+                if childObj.verbose
+                    fprintf('MT Iteration %d...\n', its);
+                end
                 prev_prior = childObj.prior;
+                if childObj.parallel
+                    parfor i = 1:length(Xcell)
+                        [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
+                    end
+                else
                 for i = 1: length(Xcell)
                     [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
-                    %error(i) = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
+                end
                 end
                 childObj.update_lambda(error);
                 childObj.update_prior(outputs);
@@ -158,14 +181,15 @@ classdef MT_baseclass < handle
             if rank(C) < size(C,1)
                 e = eig((1/(size(temp,2)-1))*(temp*temp'));
                 if ~sum(e>0)
-                    eta = 1;
+                    obj.eta = 1;
                 else
-                    eta = min(e(e>0));
+                    obj.eta = min(e(e>0));
                 end
-                C = C + eta*eye(size(C,1));
+                C = C + obj.eta*eye(size(C,1));
             end
             
             prior_struct.sigma = C;
+            prior_struct.eta = obj.eta;
         end
 
         function y_switched = swap_labels(y, labels, forward)

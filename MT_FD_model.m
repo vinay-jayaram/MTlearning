@@ -185,7 +185,7 @@ classdef MT_FD_model < MT_baseclass
             L = err1 + err2;
        end
         
-        function y = predict(obj, X, varargin)
+        function y = prior_predict(obj, X, varargin)
             Xw = dot3d(permute(X, [3, 1, 2]), obj.model_spec.w)';
             labels = invarargin(varargin, 'labels');
             if isempty(labels)
