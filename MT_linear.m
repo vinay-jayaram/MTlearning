@@ -184,7 +184,7 @@ classdef MT_linear < MT_baseclass
             if obj.dimReduce
                 X = obj.W'*X;
             end
-            y = MT_linear.predict(obj.prior.mu, X, labels);
+            y = obj.predict(obj.prior.mu, X, labels);
         end
         
     end

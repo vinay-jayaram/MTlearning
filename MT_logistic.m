@@ -199,7 +199,19 @@ classdef MT_logistic < MT_baseclass
             % Set mean weights as new model weights
             obj.w = obj.prior.mu;
         end
-        
+                function y = prior_predict(obj, X, varargin)
+            labels = invarargin(varargin,'labels');
+            if isempty(labels)
+                labels = obj.labels;
+            end
+            if isempty(labels)
+                error('Model has not yet been trained');
+            end
+            if obj.dimReduce
+                X = obj.W'*X;
+            end
+            y = MT_logistic.predict(obj.prior.mu, X, labels);
+        end
         
         function grad = crossentropy_grad(obj, X, y, w, lam)
             pred = MT_logistic.logistic_func(X, w);

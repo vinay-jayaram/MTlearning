@@ -181,15 +181,17 @@ classdef MT_baseclass < handle
             if rank(C) < size(C,1)
                 e = eig((1/(size(temp,2)-1))*(temp*temp'));
                 if ~sum(e>0)
-                    obj.eta = 1;
+                    eta = 1;
                 else
-                    obj.eta = min(e(e>0));
+                    eta = min(e(e>0));
                 end
-                C = C + obj.eta*eye(size(C,1));
+                C = C + eta*eye(size(C,1));
             end
             
             prior_struct.sigma = C;
-            prior_struct.eta = obj.eta;
+            if exist('eta','var')
+            prior_struct.eta = eta;
+            end
         end
 
         function y_switched = swap_labels(y, labels, forward)

@@ -2,7 +2,7 @@ classdef MT_FD_model < MT_baseclass
     
     properties(GetAccess = 'public', SetAccess = 'private')
         % weight vector for classification
-        to_labels
+        labels
         model_spec
         model_spat
         % parameters for convergence
@@ -33,14 +33,15 @@ classdef MT_FD_model < MT_baseclass
             % Initialize models for each dimension
             assert(strcmp(type, 'linear') || strcmp(type, 'logistic'), ...
                 'type has to be linear or logistic.');
+            obj.labels = ones(2,2);
             if strcmp(type, 'linear')
                 obj.model_spat = MT_linear(k, 'dim_reduce', 0, 'n_its', 1, 'prior_init_val', 1);
                 obj.model_spec = MT_linear(d, 'dim_reduce', 0, 'n_its', 1, 'prior_init_val', 0);
-                obj.to_labels = [1; -1];
+                obj.labels(:,2) = [1; -1];
             elseif strcmp(type, 'logistic')
                 obj.model_spat = MT_logistic(k, 'dim_reduce', 0, 'n_its', 1, 'prior_init_val', 1);
                 obj.model_spec = MT_logistic(d, 'dim_reduce', 0, 'n_its', 1, 'prior_init_val', 0);
-                obj.to_labels = [0; 1];
+                obj.labels(:,2) = [0; 1];
             else
                 fprintf('Unknown model type, something went terribly wrong!\n');
             end
@@ -68,11 +69,11 @@ classdef MT_FD_model < MT_baseclass
             end
             
             assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
-            labels = [unique(cat(1,ycell{:})), obj.to_labels];
-            obj.model_spat.labels = labels;
+            obj.labels(:,1) = unique(cat(1,ycell{:}));
+            obj.model_spat.labels = obj.labels;
             % replace labels with {1,-1} for algorithm
             for i = 1:length(ycell)
-                ycell{i} = MT_baseclass.swap_labels(ycell{i}, labels, 'to');
+                ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
             end
             %obj.w = zeros(size(Xcell{1},2),1);
             %obj.a = zeros(size(Xcell{1},1),1);
@@ -127,8 +128,6 @@ classdef MT_FD_model < MT_baseclass
             out = struct();
 
             % switch input labels using instance dictionary
-            labels = [unique(cat(1,y)), obj.to_labels];
-            obj.model_spat.labels = labels;
             y_train = MT_baseclass.swap_labels(y, obj.model_spat.labels, 'to');
             
             if ML
@@ -151,7 +150,7 @@ classdef MT_FD_model < MT_baseclass
                 [out.w, out.loss] = obj.fit_model(X, y_train, out.lambda);
             end
             
-            out.predict = @(X)(obj.predict(X));
+            out.predict = @(X)(obj.predict(out.w, X, obj.labels));
             out.training_acc = mean(y == out.predict(X));
         end
         
@@ -189,9 +188,9 @@ classdef MT_FD_model < MT_baseclass
             Xw = dot3d(permute(X, [3, 1, 2]), obj.model_spec.w)';
             labels = invarargin(varargin, 'labels');
             if isempty(labels)
-                y = obj.model_spat.predict(Xw);
+                y = obj.model_spat.prior_predict(Xw);
             else
-                y = obj.model_spat.predict(Xw, 'labels', labels);
+                y = obj.model_spat.prior_predict(Xw, 'labels', labels);
             end
         end 
        
@@ -199,12 +198,12 @@ classdef MT_FD_model < MT_baseclass
     
     methods(Static)
         
-       %function y = predict(w, X, labels)
-       %    y = zeros(size(X,3),1);
-       %    for i = 1:length(y)
-       %        y(i) = sign(w{2}'*X(:,:,i)*w{1});
-       %    end
-       %    y = MT_baseclass.swap_labels(y, labels, 'from');
-       %end
+       function y = predict(w, X, labels)
+          y = zeros(size(X,3),1);
+          for i = 1:length(y)
+              y(i) = sign(w{2}'*X(:,:,i)*w{1});
+          end
+          y = MT_baseclass.swap_labels(y, labels, 'from');
+       end
     end
 end
