@@ -15,10 +15,9 @@ classdef MT_FD_model < MT_baseclass
             % Constructor for multitask linear regression. 
             %
             % Input:
-            %     Xcell: cell array of datasets
-            %     ycell: cell array of labels
-            %     varargin: Flags 
-            % construct superclass
+            %     d:    number of spectral features
+            %     k:    number of spatial features
+            %     type: type of model used for spatial/spectral priors
             obj@MT_baseclass(varargin{:})
 
             obj.maxItVar = invarargin(varargin,'max_it_var');
@@ -89,7 +88,7 @@ classdef MT_FD_model < MT_baseclass
         end
         
         function [w, error] = fit_model(obj, X, y, lambda)
-            num_features = size(X,2);
+            num_chans = size(X,1);
             %w{2} = ones(chans,1);
             %w{1} = zeros(features,1); % I'm not convinced that a cell array is best here...but.....does it make sense to store things
                                                        % as rank-1 matrices
@@ -100,12 +99,11 @@ classdef MT_FD_model < MT_baseclass
             obj.model_spec.w = obj.model_spec.prior.mu;
             obj.model_spat.w = obj.model_spat.prior.mu;
             
-             w_prev=ones(num_features, 1);
+             w_prev=zeros(num_chans, 1);
              count2=0;
-             ntrials = size(X,3);
              w = {obj.model_spec.w, obj.model_spat.w};
-             while sum(or(abs(w{1}) > (w_prev+obj.maxItVar*w_prev),abs(w{1}) < (w_prev-obj.maxItVar*w_prev)))>0 && count2< obj.nIts                
-                w_prev = abs(w{1});
+             while sum(or(abs(w{2}) > (w_prev+obj.maxItVar*w_prev),abs(w{2}) < (w_prev-obj.maxItVar*w_prev)))>0 && count2< obj.nIts                
+                w_prev = abs(w{2});
                 aX = dot3d(permute(X, [3, 2, 1]), obj.model_spat.w)';
                 obj.model_spec.w = obj.model_spec.fit_model(aX, y, lambda);
                 Xw = dot3d(permute(X, [3, 1, 2]), obj.model_spec.w)';
@@ -128,7 +126,7 @@ classdef MT_FD_model < MT_baseclass
             out = struct();
 
             % switch input labels using instance dictionary
-            y_train = MT_baseclass.swap_labels(y, obj.model_spat.labels, 'to');
+            y_train = MT_baseclass.swap_labels(y, obj.labels, 'to');
             
             if ML
                 prev_loss = 0;

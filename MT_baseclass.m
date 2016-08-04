@@ -190,7 +190,7 @@ classdef MT_baseclass < handle
             
             prior_struct.sigma = C;
             if exist('eta','var')
-            prior_struct.eta = eta;
+                prior_struct.eta = eta;
             end
         end
 
