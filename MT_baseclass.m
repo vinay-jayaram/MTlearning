@@ -16,6 +16,7 @@ classdef MT_baseclass < handle
         trAdjust
         verbose
         parallel %0 or number of workers. Does not delete pool. 
+        varargin % used to allow for deep copy
     end
     
     methods
@@ -29,7 +30,7 @@ classdef MT_baseclass < handle
             %
             % Output:
             %    obj: This instance.
-            
+            obj.varargin = varargin;
             obj.nIts = invarargin(varargin,'n_its');
             if isempty(obj.nIts)
                 obj.nIts = 1000;
@@ -150,7 +151,7 @@ classdef MT_baseclass < handle
             print(obj.prior);
         end
         
-                function P = getprior(obj)
+        function P = getprior(obj)
             P = obj.prior;
         end
         
