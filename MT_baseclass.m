@@ -1,6 +1,6 @@
 classdef MT_baseclass < handle
     % Base class that implements some common methods to any
-    % sort of MT learning
+    % sort of MT learning that relies on an EM algorithm
     
     properties(Access = 'protected')
         % struct to contain priors
