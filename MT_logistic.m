@@ -58,7 +58,7 @@ classdef MT_logistic < MT_linear
         end
               
         function grad = crossentropy_grad(obj, X, y, w, lam)
-            pred = MT_logistic_test.logistic_func(X, w);
+            pred = MT_logistic.logistic_func(X, w);
             % Compute plain crossentropy gradient
             grad = sum(repmat(pred - y, 1, length(w)).*X', 1)';
             % Add regularization term (avoiding inversion of the covariance prior)
@@ -77,7 +77,7 @@ classdef MT_logistic < MT_linear
             h = 1.0 ./ (1 + exp(-X'*w));
         end
         function y = predict(w, X, labels)
-            pred = MT_logistic_test.logistic_func(X, w);
+            pred = MT_logistic.logistic_func(X, w);
             y = MT_baseclass.swap_labels(pred > 0.5, labels, 'from');
         end        
     end
