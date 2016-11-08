@@ -13,7 +13,12 @@ The file testscript.m has sample data and runs through classification with the v
 
 ```
 model = MT_linear(feature_dimension);
+moel = MT_FD_model(fdim1, fdim2, 'linear')
 ```
+
+Note that there are two possible models (for details see [1]): the linear and bilinear. The linear model requires datasets of the form (features x labels) while the bilinear model (accessible through MT\_FD\_model) requires datsets of the form (electrodes x features x labels). 
+
+
 
 2. Train the prior (and optionally classify using the prior mean)
 
