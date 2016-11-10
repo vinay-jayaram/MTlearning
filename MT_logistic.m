@@ -1,5 +1,20 @@
 classdef MT_logistic < MT_linear
-    
+        % Logistic regression that inherits from MT_linear, which inherits
+        % prior computation code from MT_baseclass.
+    % and implements functions to fit new models given the prior
+    % distribution. Accepts the same arguments as MT_linear (reproduced below):
+    %
+   %      dim_reduce:      Use PCA for cross-subject dimensionality
+   %                               reduction (default false)
+   %
+   %      max_it_var:        Maximum percentage of variation between
+   %                                iterations allowed before convergence (default 1%)
+   %
+   %      max_pct_var:     Maximum number of dimensions allowed to be
+   %                                 unconverged before algorithm exits (default 1%)
+   %
+   %      prior_init_val:     Value with which to initialize prior mean
+   %                                (default 0)
     methods
         function obj = MT_logistic(d, varargin)
             % Constructor for multitask linear regression.
