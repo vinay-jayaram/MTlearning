@@ -1,5 +1,23 @@
 classdef MT_linear < MT_baseclass
-    
+    % Base class for models that inherit from MT_baseclass and perform
+    % classification. Inherits prior computation code from MT_baseclass
+    % and implements functions to fit new models given the prior
+    % distribution. Accepts the following arguments *in addition* 
+    % to those accepted by MT_baseclass:
+    %
+   %      dim_reduce:      Use PCA for cross-subject dimensionality
+   %                               reduction (default false)
+   %
+   %      max_it_var:        Maximum percentage of variation between
+   %                                iterations allowed before convergence (default 1%)
+   %
+   %      max_pct_var:     Maximum number of dimensions allowed to be
+   %                                 unconverged before algorithm exits (default 1%)
+   %
+   %      prior_init_val:     Value with which to initialize prior mean
+   %                                (default 0)
+   %
+   %
     properties(GetAccess = 'public', SetAccess = 'public')
         % vector that contains unique labels for prediction
         labels

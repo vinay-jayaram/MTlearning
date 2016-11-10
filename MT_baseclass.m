@@ -1,6 +1,26 @@
 classdef MT_baseclass < handle
+    % Vinay Jayaram 10.11.16
     % Base class that implements some common methods to any
-    % sort of MT learning that relies on an EM algorithm
+    % sort of MT learning that relies on an EM algorithm. Defines optional 
+    % arguments that should be accepted by any inheriting class:
+    %    n_its:                    Number of iterations of the prior computation before
+    %                                exiting (default 1000)
+    %
+    %    lambda_ml:          ML computation of the lambda value (see
+    %                               paper). Default true (cross-validation is quite long)
+    %
+    %    tr_adjust:             Regularize computation of the prior covariance
+    %                                by the trace as in Jayaram et al. 2016. Default false
+    %
+    %    cv_params:         Parameters to give the cross-validation
+    %                                function lambdaCV.m (also in this repo)
+    %
+    %    verbose:              Output debugging information. Default false
+    %
+    %    parallel:                Attempts to start a parpool if one does
+    %                                not exist and parallelizes computation of the individual datasets.
+    %                                Default 0 (does not execute); can take integer arguments for
+    %                                number of workers
     
     properties(Access = 'protected')
         % struct to contain priors
@@ -126,6 +146,7 @@ classdef MT_baseclass < handle
         end
         
         function [] = update_lambda(obj,err)
+            % Updates lambda with ML formulation if flag is set
             if obj.lambdaML
                 obj.lambda = 2*mean(err); % ...i *think* this is right
                 if obj.verbose
@@ -167,6 +188,8 @@ classdef MT_baseclass < handle
         %%%%%%%%%%%%%%%%%%%%%%
         
         function prior_struct = update_gaussian_prior(M, trAdjust)
+            % Function that updates gaussian prior given samples and trace
+            % adjust flag
             prior_struct.mu = mean(M,2);
             temp = M - repmat(prior_struct.mu,1, size(M,2));
             
@@ -196,6 +219,8 @@ classdef MT_baseclass < handle
         end
 
         function y_switched = swap_labels(y, labels, forward)
+            % Helper function to keep track of labels internally so
+            % arbitrary labels can be given as input
             switch forward
                 case 'to'
                 ind = 1;
