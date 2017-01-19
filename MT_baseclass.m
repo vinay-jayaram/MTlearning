@@ -92,8 +92,7 @@ classdef MT_baseclass < handle
             %   prior: struct with final prior values.
             
             
-            % initialize prior
-            %childObj.init_prior();
+            % initialize 
             childObj.lambda = 1;
             its = 0;
             error = zeros(length(Xcell),1);
@@ -143,6 +142,14 @@ classdef MT_baseclass < handle
                 end
             end
             prior = childObj.prior;
+        end
+        
+        function [] = update_prior(obj, outputCell)
+            W = cat(2,outputCell{:});
+            obj.prior = MT_baseclass.update_gaussian_prior(W, obj.trAdjust);
+            
+            % Set mean weights as new model weights
+            obj.w = obj.prior.mu;
         end
         
         function [] = update_lambda(obj,err)

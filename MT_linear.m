@@ -2,22 +2,22 @@ classdef MT_linear < MT_baseclass
     % Base class for models that inherit from MT_baseclass and perform
     % classification. Inherits prior computation code from MT_baseclass
     % and implements functions to fit new models given the prior
-    % distribution. Accepts the following arguments *in addition* 
+    % distribution. Accepts the following arguments *in addition*
     % to those accepted by MT_baseclass:
     %
-   %      dim_reduce:      Use PCA for cross-subject dimensionality
-   %                               reduction (default false)
-   %
-   %      max_it_var:        Maximum percentage of variation between
-   %                                iterations allowed before convergence (default 1%)
-   %
-   %      max_pct_var:     Maximum number of dimensions allowed to be
-   %                                 unconverged before algorithm exits (default 1%)
-   %
-   %      prior_init_val:     Value with which to initialize prior mean
-   %                                (default 0)
-   %
-   %
+    %      dim_reduce:      Use PCA for cross-subject dimensionality
+    %                               reduction (default false)
+    %
+    %      max_it_var:        Maximum percentage of variation between
+    %                                iterations allowed before convergence (default 1%)
+    %
+    %      max_pct_var:     Maximum number of dimensions allowed to be
+    %                                 unconverged before algorithm exits (default 1%)
+    %
+    %      prior_init_val:     Value with which to initialize prior mean
+    %                                (default 0)
+    %
+    %
     properties(GetAccess = 'public', SetAccess = 'public')
         % vector that contains unique labels for prediction
         labels
@@ -28,7 +28,7 @@ classdef MT_linear < MT_baseclass
         % binary flag for dimensionality reduction
         dimReduce
         % binary flag for LDA labelling
-%         LDA
+        %         LDA
         % parameters for convergence
         maxItVar % maximum variation between iterations before convergence
         maxNumVar % maximum number of dimensions allowed to not converge
@@ -36,12 +36,12 @@ classdef MT_linear < MT_baseclass
     
     methods
         function obj = MT_linear(d, varargin)
-            % Constructor for multitask linear regression. 
+            % Constructor for multitask linear regression.
             %
             % Input:
             %     d           : Dimension of data
-            %     varargin: Flags 
-
+            %     varargin: Flags
+            
             % construct superclass
             obj@MT_baseclass(varargin{:})
             
@@ -114,6 +114,8 @@ classdef MT_linear < MT_baseclass
                 obj.init_prior(size(obj.W,2),0);
             else
                 obj.W = [];
+                % obj.w was already initialized
+                obj.init_prior(size(Xcell{1},1),0);
             end
             prior = fit_prior@MT_baseclass(obj, Xcell, ycell);
         end
@@ -134,11 +136,11 @@ classdef MT_linear < MT_baseclass
         
         function out = fit_new_task(obj, X, y, varargin)
             if obj.dimReduce
-            assert(size(X, 1) == size(obj.W,1), ...
-                'Feature dimensionality of the data does not match this model');
+                assert(size(X, 1) == size(obj.W,1), ...
+                    'Feature dimensionality of the data does not match this model');
             else
-            assert(size(X, 1) == length(obj.prior.mu), ...
-                'Feature dimensionality of the data does not match this model');
+                assert(size(X, 1) == length(obj.prior.mu), ...
+                    'Feature dimensionality of the data does not match this model');
             end
             % argument parsing
             
@@ -151,7 +153,7 @@ classdef MT_linear < MT_baseclass
             if obj.dimReduce
                 X = obj.W'*X;
             end
-
+            
             % switch input labels using instance dictionary
             y_train = MT_baseclass.swap_labels(y, obj.labels,'to');
             if ML
@@ -161,13 +163,13 @@ classdef MT_linear < MT_baseclass
                 count = 0;
                 out.w = zeros(size(X,1),1);
                 while sum(or(abs(out.w) > (prev_w+obj.maxItVar*prev_w), abs(out.w) < (prev_w - obj.maxItVar * prev_w)))...
-                         && count < obj.nIts
+                        && count < obj.nIts
                     prev_w = abs(out.w);
                     [out.w, out.loss] = obj.fit_model(X, y_train, out.lambda);
                     out.lambda = 2*out.loss;
                     count = count+1;
                     if obj.verbose
-                    fprintf('[new task fitting] ML lambda Iteration %d, lambda %.4e \n', count, out.lambda);
+                        fprintf('[new task fitting] ML lambda Iteration %d, lambda %.4e \n', count, out.lambda);
                     end
                 end
             else
@@ -182,14 +184,7 @@ classdef MT_linear < MT_baseclass
             end
             out.training_acc = mean(y == out.predict(Xoriginal));
         end
-        
-        function [] = update_prior(obj, outputCell)
-            W = cat(2,outputCell{:});
-            obj.prior = MT_baseclass.update_gaussian_prior(W, obj.trAdjust);
-            
-            % Set mean weights as new model weights
-            obj.w = obj.prior.mu;
-        end
+       
         
         function y = prior_predict(obj, X, varargin)
             labels = invarargin(varargin,'labels');
@@ -212,8 +207,8 @@ classdef MT_linear < MT_baseclass
             % implements straight (average) squared loss
             L = (norm(X'*w-y,2)^2)/length(y);
         end
-         function y = predict(w, X, labels)            
+        function y = predict(w, X, labels)
             y = MT_baseclass.swap_labels(sign(X'*w), labels, 'from');
-        end       
+        end
     end
 end

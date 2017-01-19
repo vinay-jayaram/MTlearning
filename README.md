@@ -47,9 +47,13 @@ MT_baseclass implements a class that can be inherited which sketches out the gen
 
 MT_linear is the basic approach that considers the multi-task problem in a linear regression setting [1]. To create new methods, the easiest way is to inherit from the class and simply change the method that fits the classifier given a prior and a dataset (see MT\_logistic for an example). 
 
+# Additions
+
+There is an enormous space of possibilties for how this framework can be extended and improved. If you are interested in adding a method please let me know (vjayaram@tue.mpg.de) and see the included CONTRIBUTE.md file for some help on how your method could be fit into this framework.
+
 
 # Feedback
-Please feel free (indeed, urged) to let me know through the issues feature whether something is not working and I will be happy to fix them as soon as I can. If preferrable, feel free also to send mail to vjayaram@tuebingen.mpg.de 
+Please feel free (indeed, urged) to let me know through the issues feature whether something is not working and I will be happy to fix them as soon as I can. If preferrable, feel free also to send mail to vjayaram@tue.mpg.de 
 
 # Python
 Python version coming shortly...
