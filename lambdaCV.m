@@ -7,8 +7,8 @@ function [l, cvout] = lambdaCV(f,loss,data,labels,varargin)
 %                   (X,y,lambda)->obj
 %       loss:     Handle of function that determines loss, (obj,X,y)->loss
 %                   measure
-%       data:    data
-%       labels:  Class labels {1,-1}
+%       data:    data (cell array)
+%       labels:  Class labels {1,-1} (cell array)
 %
 % Optional Arguments
 %       n:             Number of CV loops (default 10)

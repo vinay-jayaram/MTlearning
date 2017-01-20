@@ -112,6 +112,8 @@ classdef MT_baseclass < handle
             
             % If no ML, cross-validate for appropriate lambda value
             if ~childObj.lambdaML
+                % loss of interest is empirical rest loss averaged over all
+                % datasets. 
                 error('Currently only supports ML estimation of the lambda value for prior calculation (it works better anyway)');
             end
             
@@ -171,6 +173,8 @@ classdef MT_baseclass < handle
             fprintf('[MT base] number of iterations: %d\n',obj.nIts);
             fprintf('[MT base] ML estimation of lambda: %d\n',obj.lambdaML);
             fprintf('[MT base] trace-adjusted covariance update: %d\n',obj.trAdjust);
+            fprintf('[MT base] Verbose: %d\n',obj.verbose);
+            fprintf('[MT base] Parallel: %d\n',obj.parallel);
         end
         
 
@@ -246,4 +250,6 @@ classdef MT_baseclass < handle
             
     end
 end
+
+
 

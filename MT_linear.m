@@ -39,7 +39,8 @@ classdef MT_linear < MT_baseclass
             % Constructor for multitask linear regression.
             %
             % Input:
-            %     d           : Dimension of data
+            %     d           : Dimension of data in order to construct
+            %     prior
             %     varargin: Flags
             
             % construct superclass
@@ -124,7 +125,7 @@ classdef MT_linear < MT_baseclass
             mu = abs(prior.mu);
             mu_prev = abs(prev_prior.mu);
             converged = sum(or(mu > (mu_prev+obj.maxItVar*mu_prev), mu < (mu_prev - obj.maxItVar * mu_prev)));
-            b = converged < (obj.maxNumVar * length(mu));
+            b = converged <= (obj.maxNumVar * length(mu));
         end
         
         function [w, error] = fit_model(obj, X, y, lambda)
