@@ -11,7 +11,7 @@ classdef MT_FD_model < MT_baseclass
     end
     
     methods
-        function obj = MT_FD_model(d, k, type, varargin)
+        function obj = MT_FD_model(type, varargin)
             % Constructor for multitask linear regression. 
             %
             % Input:
@@ -34,18 +34,16 @@ classdef MT_FD_model < MT_baseclass
                 'type has to be linear or logistic.');
             obj.labels = ones(2,2);
             if strcmp(type, 'linear')
-                obj.model_spat = MT_linear(k, 'dim_reduce', 0, 'n_its', 1, 'prior_init_val', 1);
-                obj.model_spec = MT_linear(d, 'dim_reduce', 0, 'n_its', 1, 'prior_init_val', 0);
+                obj.model_spat = MT_linear('dim_reduce', 0, 'n_its', 1, 'prior_init_val', 1);
+                obj.model_spec = MT_linear('dim_reduce', 0, 'n_its', 1, 'prior_init_val', 0);
                 obj.labels(:,2) = [1; -1];
             elseif strcmp(type, 'logistic')
-                obj.model_spat = MT_logistic(k, 'dim_reduce', 0, 'n_its', 1, 'prior_init_val', 1);
-                obj.model_spec = MT_logistic(d, 'dim_reduce', 0, 'n_its', 1, 'prior_init_val', 0);
+                obj.model_spat = MT_logistic('dim_reduce', 0, 'n_its', 1, 'prior_init_val', 1);
+                obj.model_spec = MT_logistic('dim_reduce', 0, 'n_its', 1, 'prior_init_val', 0);
                 obj.labels(:,2) = [0; 1];
             else
                 fprintf('Unknown model type, something went terribly wrong!\n');
             end
-            
-            obj.init_prior();
         end
         
         %function [] = init_prior(obj)
@@ -53,7 +51,9 @@ classdef MT_FD_model < MT_baseclass
         %    obj.prior.spat =  obj.spat_model.prior;
         %end
         
-        function [] = init_prior(obj)
+        function [] = init_prior(obj, d, k)
+             obj.model_spat.init_prior(d,1);
+             obj.model_spec.init_prior(k,0);
             obj.prior.spec = obj.model_spec.prior;
             obj.prior.spat = obj.model_spat.prior;
         end
@@ -76,7 +76,7 @@ classdef MT_FD_model < MT_baseclass
             end
             %obj.w = zeros(size(Xcell{1},2),1);
             %obj.a = zeros(size(Xcell{1},1),1);
-            
+            obj.init_prior(size(Xcell{1},1),size(Xcell{1},2));
             prior = fit_prior@MT_baseclass(obj, Xcell, ycell);
         end
         

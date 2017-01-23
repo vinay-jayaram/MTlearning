@@ -25,6 +25,8 @@ classdef MT_linear < MT_baseclass
         W
         % weight vector for classification
         w
+        % initial value for mu
+        init_val
         % binary flag for dimensionality reduction
         dimReduce
         % binary flag for LDA labelling
@@ -35,7 +37,7 @@ classdef MT_linear < MT_baseclass
     end
     
     methods
-        function obj = MT_linear(d, varargin)
+        function obj = MT_linear(varargin)
             % Constructor for multitask linear regression.
             %
             % Input:
@@ -58,67 +60,76 @@ classdef MT_linear < MT_baseclass
             if isempty(obj.maxNumVar)
                 obj.maxNumVar = 1e-2;
             end
-            init_val = invarargin(varargin,'prior_init_val');
-            if isempty(init_val)
-                init_val = 0;
+            obj.init_val = invarargin(varargin,'prior_init_val');
+            if isempty(obj.init_val)
+                obj.init_val = 0;
             end
-            
-            obj.init_prior(d, init_val);
-            obj.w = obj.prior.mu;
             obj.labels = [];
         end
         
         function [] = init_prior(obj, d, init_val)
             obj.prior.mu = init_val*ones(d, 1);
             obj.prior.sigma = eye(d);
+            obj.prior.W = [];
         end
-        
-        function prior = fit_prior(obj, Xcell, ycell)
+       
+        function prior = fit_prior(obj, Xcell, ycell, varargin)
             % sanity checks
             assert(length(Xcell) == length(ycell), 'unequal data and labels arrays');
             assert(length(Xcell) > 1, 'only one dataset provided');
-            assert(size(Xcell{1}, 1) == length(obj.prior.mu), ...
-                'Feature dimensionality of the data does not match this model');
             for i = 1:length(Xcell)
                 assert(size(Xcell{i},2) == length(ycell{i}), 'number of datapoints and labels differ');
                 ycell{i} = reshape(ycell{i},[],1);
             end
             
-            
-            assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
-            if isempty(obj.labels)
-                obj.labels = [unique(cat(1,ycell{:})),[1;-1]];
+            lambda = invarargin(varargin,'lambda');
+            if isempty(lambda)
+                lambda = NaN;
             end
-            % replace labels with {1,-1} for algorithm
-            for i = 1:length(ycell)
-                ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
-            end
-            obj.w = zeros(size(Xcell{1},1),1);
             
-            if obj.dimReduce
-                Xall = cat(2,Xcell{:});
-                Xcov = cov((Xall-kron(mean(Xall,2),ones(1,size(Xall,2))))');
-                [V,D] = eig(Xcov);
-                if min(diag(D)) > 0
-                    D = D / sum(sum(D));
-                    V = V(:,diag(D)>1e-8);
+            cv = invarargin(varargin, 'cv');
+            % flag to get around infinite recursion...
+            if isempty(cv)
+                cv = 0;
+            end
+            if ~cv
+                assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
+                if isempty(obj.labels)
+                    obj.labels = [unique(cat(1,ycell{:})),[1;-1]];
+                end
+                % replace labels with {1,-1} for algorithm
+                for i = 1:length(ycell)
+                    ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
+                end
+                obj.w = zeros(size(Xcell{1},1),1);
+                
+                if obj.dimReduce
+                    Xall = cat(2,Xcell{:});
+                    Xcov = cov((Xall-kron(mean(Xall,2),ones(1,size(Xall,2))))');
+                    [V,D] = eig(Xcov);
+                    if min(diag(D)) > 0
+                        D = D / sum(sum(D));
+                        V = V(:,diag(D)>1e-8);
+                    else
+                        D2 = D(:,diag(D)>0);
+                        D = D / sum(sum(D2));
+                        V = V(:,diag(D)>1e-8);
+                    end
+                    obj.W = V;
+                    for i = 1:length(Xcell)
+                        Xcell{i} = obj.W'*Xcell{i};
+                    end
+                    obj.w = zeros(size(obj.W,2),1);
+                    obj.init_prior(size(obj.W,2),0);
                 else
-                    D2 = D(:,diag(D)>0);
-                    D = D / sum(sum(D2));
-                    V = V(:,diag(D)>1e-8);
+                    obj.W = [];
+                    % obj.w was already initialized
+                    obj.init_prior(size(Xcell{1},1),obj.init_val);
                 end
-                obj.W = V;
-                for i = 1:length(Xcell)
-                    Xcell{i} = obj.W'*Xcell{i};
-                end
-                obj.w = zeros(size(obj.W,2),1);
-                obj.init_prior(size(obj.W,2),0);
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
             else
-                obj.W = [];
-                % obj.w was already initialized
-                obj.init_prior(size(Xcell{1},1),0);
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
             end
-            prior = fit_prior@MT_baseclass(obj, Xcell, ycell);
         end
         
         function [b, converged] = convergence(obj, prior, prev_prior)

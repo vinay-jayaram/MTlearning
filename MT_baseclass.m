@@ -1,7 +1,7 @@
 classdef MT_baseclass < handle
     % Vinay Jayaram 10.11.16
     % Base class that implements some common methods to any
-    % sort of MT learning that relies on an EM algorithm. Defines optional 
+    % sort of MT learning that relies on an EM algorithm. Defines optional
     % arguments that should be accepted by any inheriting class:
     %    n_its:                    Number of iterations of the prior computation before
     %                                exiting (default 1000)
@@ -35,7 +35,7 @@ classdef MT_baseclass < handle
         lambdaML
         trAdjust
         verbose
-        parallel %0 or number of workers. Does not delete pool. 
+        parallel %0 or number of workers. Does not delete pool.
         varargin % used to allow for deep copy
     end
     
@@ -70,6 +70,9 @@ classdef MT_baseclass < handle
             obj.verbose = invarargin(varargin,'verbose');
             if isempty(obj.verbose)
                 obj.verbose=0;
+            else
+                obj.cvParams{end+1} = 'v';
+                obj.cvParams{end+1} = 1;
             end
             obj.parallel = invarargin(varargin,'parallel');
             if isempty(obj.parallel)
@@ -84,16 +87,14 @@ classdef MT_baseclass < handle
         %            Update functions
         %%%%%%%%%%%%%%%%%%%%%%
         
-        function prior = fit_prior(childObj, Xcell, ycell)
+        function prior = fit_prior(childObj, Xcell, ycell, lambda)
             % Function to fit prior given another class that defines loss
-            % and parameter estimation steps
+            % and parameter estimation steps. If given a nonsense lambda
+            % value
             %
             % Output:
             %   prior: struct with final prior values.
             
-            
-            % initialize 
-            childObj.lambda = 1;
             its = 0;
             error = zeros(length(Xcell),1);
             outputs = cell(length(Xcell),1);
@@ -103,36 +104,49 @@ classdef MT_baseclass < handle
                 p = gcp('nocreate');
                 if isempty(p)
                     try
-                    p = parpool(childObj.parallel);
+                        p = parpool(childObj.parallel);
                     catch Ex
                         error(Ex.message);
                     end
                 end
             end
             
-            % If no ML, cross-validate for appropriate lambda value
-            if ~childObj.lambdaML
-                % loss of interest is empirical rest loss averaged over all
-                % datasets. 
-                error('Currently only supports ML estimation of the lambda value for prior calculation (it works better anyway)');
+            childObj.lambda = lambda;
+            if isnan(childObj.lambda)
+                if childObj.lambdaML
+                    disp('Invalid lambda value given. Using maximum-likelihood estimation of lambda parameter.');
+                    childObj.lambda = 1;
+                    updateLambda = 1;
+                else
+                    % if no ML and no lambda given then cross-validate (is
+                    % recursive...)
+                    updateLambda = 0;
+                    disp('Invalid lambda value given. Using cross-validation to estimate.');
+                    childObj.lambda = lambdaCV(@(X,y,lambda)(multi_task_f(childObj,X,y,lambda)),...
+                        @(W, X, y)(multi_task_loss(childObj,W,X,y)),Xcell,ycell,childObj.cvParams{:});
+                    
+                end
+            else
+                updateLambda = 0;
             end
             
-            % loop to iterate update steps 
+            % if lambda specificed we just need to run the optimization
+            % once. If not, we do more.
+            % loop to iterate update steps
             while its < childObj.nIts
-                if childObj.verbose
-                    fprintf('MT Iteration %d...\n', its);
-                end
                 prev_prior = childObj.prior;
                 if childObj.parallel
                     parfor i = 1:length(Xcell)
                         [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
                     end
                 else
-                for i = 1: length(Xcell)
-                    [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
+                    for i = 1: length(Xcell)
+                        [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
+                    end
                 end
+                if updateLambda
+                    childObj.update_lambda(error);
                 end
-                childObj.update_lambda(error);
                 childObj.update_prior(outputs);
                 its = its + 1;
                 [convergence, num] = childObj.convergence(childObj.prior, prev_prior);
@@ -140,10 +154,11 @@ classdef MT_baseclass < handle
                     break
                 end
                 if childObj.verbose
-                fprintf('[MT prior] iteration %d, remaining %d\n', its, num);
+                    fprintf('[MT prior] iteration %d, remaining %d\n', its, num);
                 end
             end
             prior = childObj.prior;
+            
         end
         
         function [] = update_prior(obj, outputCell)
@@ -159,11 +174,11 @@ classdef MT_baseclass < handle
             if obj.lambdaML
                 obj.lambda = 2*mean(err); % ...i *think* this is right
                 if obj.verbose
-                fprintf('lambda: %.2e\n', obj.lambda);
+                    fprintf('lambda: %.2e\n', obj.lambda);
                 end
             end
         end
-
+        
         %%%%%%%%%%%%%%%%%%%%%%
         %         Printing  and access functions
         %%%%%%%%%%%%%%%%%%%%%%
@@ -177,7 +192,7 @@ classdef MT_baseclass < handle
             fprintf('[MT base] Parallel: %d\n',obj.parallel);
         end
         
-
+        
         
         function [] = printprior(obj)
             print(obj.prior);
@@ -202,8 +217,9 @@ classdef MT_baseclass < handle
             % Function that updates gaussian prior given samples and trace
             % adjust flag
             prior_struct.mu = mean(M,2);
+            prior_struct.W = M;
             temp = M - repmat(prior_struct.mu,1, size(M,2));
-            
+            obj.w = prior_struct.mu;
             if trAdjust
                 % Trace-normalized update
                 C = (1/trace(temp*temp'))*(temp*temp');
@@ -228,16 +244,15 @@ classdef MT_baseclass < handle
                 prior_struct.eta = eta;
             end
         end
-
+        
         function y_switched = swap_labels(y, labels, forward)
             % Helper function to keep track of labels internally so
             % arbitrary labels can be given as input
             switch forward
                 case 'to'
-                ind = 1;
+                    ind = 1;
                 case 'from'
-                    
-                ind = 2;
+                    ind = 2;
                 otherwise
                     error('last argument must be either to or from');
             end
@@ -247,9 +262,18 @@ classdef MT_baseclass < handle
             end
             y_switched = tmp;
         end
-            
+        
     end
 end
 
+function [W] = multi_task_f(obj, Xtrain, Ytrain, lambda)
+prior = obj.fit_prior(Xtrain, Ytrain, 'lambda', lambda, 'cv', 1);
+W = prior.W;
+end
 
-
+function [loss] = multi_task_loss(obj,W,Xtest,Ytest)
+loss = 0;
+for i = 1:length(Xtest)
+    loss = loss + obj.loss(W(:,i),Xtest{i},Ytest{i});
+end
+end

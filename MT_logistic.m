@@ -26,9 +26,30 @@ classdef MT_logistic < MT_linear
             obj@MT_linear(d, varargin{:})
         end
         
-        function prior = fit_prior(obj, Xcell, ycell)
-            obj.labels = [unique(cat(1,ycell{:})),[1;0]];
-            prior = fit_prior@MT_linear(obj, Xcell, ycell);
+        function prior = fit_prior(obj, Xcell, ycell, varargin)
+            % sanity checks
+            assert(length(Xcell) == length(ycell), 'unequal data and labels arrays');
+            assert(length(Xcell) > 1, 'only one dataset provided');
+            for i = 1:length(Xcell)
+                assert(size(Xcell{i},2) == length(ycell{i}), 'number of datapoints and labels differ');
+                ycell{i} = reshape(ycell{i},[],1);
+            end
+            
+            lambda = invarargin(varargin,'lambda');
+            if isempty(lambda)
+                lambda = NaN;
+            end
+            
+            assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
+            if isempty(obj.labels)
+                obj.labels = [unique(cat(1,ycell{:})),[1;0]];
+            end
+            % replace labels with {1,0} for algorithm
+            for i = 1:length(ycell)
+                ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
+            end
+            obj.init_prior(size(Xcell{1},1),1);
+            prior = fit_prior@MT_linear(obj, Xcell, ycell, lambda);
         end
         
         function [w, error] = fit_model(obj, X, y, lambda)
