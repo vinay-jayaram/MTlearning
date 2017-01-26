@@ -8,59 +8,58 @@ load MTtestdata;
 % Instantiate models
 n_its = 5;
 
-order = {'linear','logistic','l1'};
+order = {'l2','l2-trace','l1','l1-diag'};
 
-model{1} = MT_linear('dim_reduce', 0, 'n_its', 100);
-disp('Confirm prior computation switches: linear');
-model{1}.printswitches;
-model{2} = MT_logistic('dim_reduce',0, 'n_its',n_its);
-disp('Confirm prior computation switches: logistic');
-model{2}.printswitches;
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+% How to use the linear version of this approach
+%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-model{3} = MT_FL('n_its',100);
-disp('Confirm prior computation switches: l1');
-model{3}.printswitches;
+% These models show off each sort of covariance covariance update with the
+% linear version
+for i = 1:length(order)
+    disp(['********************* Covariance update: ', order{i}, '*************************']);
+    linear_model{i} = MT_linear('dim_reduce',0,'n_its',1e2,'lambda_ml',0,'cov_flag',order{i},'zero_mean',1);
+    %log_model{i} = MT_logistic('dim_reduce',0,'n_its',n_its,'lambda_ml',0,'cov_flag',order{i});
+    disp('Confirm prior computation switches: ');
+    linear_model{i}.printswitches;
+    
+    % Code to fit the prior
+    disp('Training L2 loss prior...')
+    linear_model{i}.fit_prior(T_X2d, T_y);
+    disp('Training logistic loss prior...')
+    %log_model{i}.fit_prior(T_X2d, T_y);
+    
+    % Code that computes prior accuracy on the training data
+    pacc_lin = mean(linear_model{i}.prior_predict(X2d_s) == y_s);
+    pacc_log = 0;%mean(logistic_model{i}.prior_predict(X2d_s) == y_s);
+    fprintf('prior accuracies: \n Linear: %.2f\n Logistic: %.2f\n', pacc_lin, pacc_log);
+    
+    % Code to fit the new task (with cross-validated lambda)
+    fitted_new_linear_task = linear_model{i}.fit_new_task(X2d_s, y_s, 'ml', 1);
+    %fitted_new_log_task = log_model{i}.fit_new_task(X2d_s, y_s, 'ml', 1);
 
-FD_linreg = MT_FD_model('linear', 'n_its', n_its, 'tr_adjust', 1);
-disp('Confirm prior computation switches: FD linear');
-FD_linreg.printswitches;
-
-FD_logreg = MT_FD_model('logistic', 'n_its', n_its, 'tr_adjust', 0);
-disp('Confirm prior computation switches: FD logistic');
-FD_logreg.printswitches;
-
-fprintf('\n###\n')
-for i = 1:3
-fprintf(['Training ' order{i} ' prior...\n'])
-model{i}.fit_prior(T_X2d, T_y);
-acc = mean(model{i}.prior_predict(X2d_s) == y_s);
-fprintf('%s prior accuracy: %.2f\n', order{i}, acc*100);
-out = model{i}.fit_new_task(X2d_s, y_s, 'ml', 1);
-acc = mean(out.predict(X2d_s) == y_s);
-fprintf('New task training accuracy (%s): %.2f\n', order{i}, acc*100);
+    % Classifying after the new task update
+        fprintf('New task *training set* accuracy: \n Linear: %.2f\nLogistic: %.2f\n',...
+        mean(fitted_new_linear_task.predict(X2d_s) == y_s), ...
+        0);%mean(fitted_new_log_task.predict(X2d_s) == y_s));
 end
 
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+% How to use the bilinear version of this approach
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+type = {'linear'};%,'logistic'};
 
-fprintf('Training FD linreg prior...\n')
-FD_linreg.fit_prior(T_X, T_y);
-fprintf('Training FD logreg prior...\n')
-FD_logreg.fit_prior(T_X, T_y);
-
-% note: these are overfitted: they update based on the whole data and then
-% classify the training data from the new subject. In actual use this would
-% be only updated with a fraction of the subject-specific data.
-
-acc = mean(FD_linreg.prior_predict(X_s) == y_s);
-fprintf('Linreg FD prior accuracy: %.2f\n', acc*100);
-acc = mean(FD_logreg.prior_predict(X_s) == y_s);
+for i = 1:2
+    FD{i} = MT_FD_model(type{i},'n_its',n_its);
+    FD{i}.printswitches;
+    FD{i}.fit_prior(T_X, T_y);
+    acc = mean(FD{i}.prior_predict(X_s) == y_s);
 fprintf('Logreg FD prior accuracy: %.2f\n', acc*100);
-
-out = FD_linreg.fit_new_task(X_s, y_s, 'ml', 1);
-acc = mean(out.predict(X_s) == y_s);
-fprintf('New task training accuracy (FD linreg): %.2f\n', acc*100);
-out = FD_logreg.fit_new_task(X_s, y_s, 'ml', 1);
+out = FD{i}.fit_new_task(X_s, y_s, 'ml', 1);
 acc = mean(out.predict(X_s) == y_s);
 fprintf('New task training accuracy (FD logreg): %.2f\n', acc*100);
+end
 
 fprintf('Script finished!\n');

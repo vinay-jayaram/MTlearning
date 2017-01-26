@@ -29,8 +29,8 @@ classdef MT_linear < MT_baseclass
         init_val
         % binary flag for dimensionality reduction
         dimReduce
-        % binary flag for LDA labelling
-        %         LDA
+        % Internal class labels
+        classid
         % parameters for convergence
         maxItVar % maximum variation between iterations before convergence
         maxNumVar % maximum number of dimensions allowed to not converge
@@ -54,7 +54,7 @@ classdef MT_linear < MT_baseclass
             end
             obj.maxItVar = invarargin(varargin,'max_it_var');
             if isempty(obj.maxItVar)
-                obj.maxItVar = 1e-2;
+                obj.maxItVar = 1e-3;
             end
             obj.maxNumVar = invarargin(varargin,'max_pct_var');
             if isempty(obj.maxNumVar)
@@ -65,6 +65,7 @@ classdef MT_linear < MT_baseclass
                 obj.init_val = 0;
             end
             obj.labels = [];
+            obj.classid = [1;-1];
         end
         
         function [] = init_prior(obj, d, init_val)
@@ -95,7 +96,7 @@ classdef MT_linear < MT_baseclass
             if ~cv
                 assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
                 if isempty(obj.labels)
-                    obj.labels = [unique(cat(1,ycell{:})),[1;-1]];
+                    obj.labels = [unique(cat(1,ycell{:})),obj.classid];
                 end
                 % replace labels with {1,-1} for algorithm
                 for i = 1:length(ycell)
@@ -119,31 +120,32 @@ classdef MT_linear < MT_baseclass
                     for i = 1:length(Xcell)
                         Xcell{i} = obj.W'*Xcell{i};
                     end
-                    obj.w = zeros(size(obj.W,2),1);
                     obj.init_prior(size(obj.W,2),0);
                 else
                     obj.W = [];
                     % obj.w was already initialized
                     obj.init_prior(size(Xcell{1},1),obj.init_val);
                 end
+                obj.prior.W = zeros(size(obj.prior.mu,1),length(Xcell));
                 prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
             else
+                obj.init_prior(size(obj.prior.mu,1),obj.init_val);
+                obj.prior.W = zeros(size(obj.prior.mu,1),length(Xcell));
                 prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
             end
         end
         
-        function [b, converged] = convergence(obj, prior, prev_prior)
-            mu = abs(prior.mu);
-            mu_prev = abs(prev_prior.mu);
-            converged = sum(or(mu > (mu_prev+obj.maxItVar*mu_prev), mu < (mu_prev - obj.maxItVar * mu_prev)));
-            b = converged <= (obj.maxNumVar * length(mu));
+        function [converged, b] = convergence(obj, prior, prev_prior)
+            W = prior.W;
+            W_prev = prev_prior.W;
+            converged = norm(W - W_prev, 'fro') < obj.maxItVar; %obj.maxItVar * norm(W_prev,'fro');
+            b = norm(W - W_prev,'fro');
         end
         
         function [w, error] = fit_model(obj, X, y, lambda)
             Ax=obj.prior.sigma*X;
             w = ((1 / lambda)*Ax*X'+eye(size(X,1)))\((1 / lambda)*Ax*y + obj.prior.mu);
             error = obj.loss(w, X, y);
-            obj.w = w;
         end
         
         function out = fit_new_task(obj, X, y, varargin)
@@ -209,7 +211,7 @@ classdef MT_linear < MT_baseclass
             if obj.dimReduce
                 X = obj.W'*X;
             end
-            y = obj.predict(obj.prior.mu, X, labels);
+            y = obj.predict(mean(obj.prior.W,2), X, labels);
         end
         
     end

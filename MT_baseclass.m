@@ -9,9 +9,12 @@ classdef MT_baseclass < handle
     %    lambda_ml:          ML computation of the lambda value (see
     %                               paper). Default true (cross-validation is quite long)
     %
-    %    tr_adjust:             Regularize computation of the prior covariance
-    %                                by the trace as in Jayaram et al. 2016. Default false
-    %
+    %    zero_mean:            Force the prior mean to be zero for a
+    %                               shrinkage effect. Independent of other parameters that affect the
+    %                               prior
+    %    cov_flag:             Flag that sets how the prior covariance is
+    %                               computed. Current possibilities are {'l2' [default], 'l2-trace',
+    %                               'l1', 'l1-diag'}
     %    cv_params:         Parameters to give the cross-validation
     %                                function lambdaCV.m (also in this repo)
     %
@@ -33,7 +36,8 @@ classdef MT_baseclass < handle
         % and switches
         nIts
         lambdaML
-        trAdjust
+        zeroMean
+        covFlag
         verbose
         parallel %0 or number of workers. Does not delete pool.
         varargin % used to allow for deep copy
@@ -59,9 +63,20 @@ classdef MT_baseclass < handle
             if isempty(obj.lambdaML)
                 obj.lambdaML = 1;
             end
-            obj.trAdjust = invarargin(varargin,'tr_adjust');
-            if isempty(obj.trAdjust)
-                obj.trAdjust = 0;
+            obj.zeroMean = invarargin(varargin,'zero_mean');
+            if isempty(obj.zeroMean)
+                obj.zeroMean = 0;
+            end
+            obj.covFlag = invarargin(varargin,'cov_flag');
+            if isempty(obj.covFlag)
+                obj.covFlag = 'l2';
+            else
+                switch obj.covFlag
+                    case {'l1','l1-diag'}
+                        disp('L1 norm chosen, prior mean set to zero');
+                        obj.zeroMean = 1;
+                end
+                        
             end
             obj.cvParams = invarargin(varargin,'cv_params');
             if isempty(obj.cvParams)
@@ -71,7 +86,7 @@ classdef MT_baseclass < handle
             if isempty(obj.verbose)
                 obj.verbose=0;
             else
-                obj.cvParams{end+1} = 'v';
+                obj.cvParams{end+1} = 'verbose';
                 obj.cvParams{end+1} = 1;
             end
             obj.parallel = invarargin(varargin,'parallel');
@@ -151,11 +166,16 @@ classdef MT_baseclass < handle
                 its = its + 1;
                 [convergence, num] = childObj.convergence(childObj.prior, prev_prior);
                 if convergence
+                    if childObj.verbose
+                    fprintf('[MT prior] Iteration %d, converged, error %d\n', its, num);
+                    end
                     break
+                else
+                     if childObj.verbose
+                    fprintf('[MT prior] Iteration %d, error %d\n', its, num);
+                    end                   
                 end
-                if childObj.verbose
-                    fprintf('[MT prior] iteration %d, remaining %d\n', its, num);
-                end
+
             end
             prior = childObj.prior;
             
@@ -163,10 +183,10 @@ classdef MT_baseclass < handle
         
         function [] = update_prior(obj, outputCell)
             W = cat(2,outputCell{:});
-            obj.prior = MT_baseclass.update_gaussian_prior(W, obj.trAdjust);
+            obj.prior = MT_baseclass.update_gaussian_prior(W, obj.zeroMean, obj.covFlag);
             
-            % Set mean weights as new model weights
-            obj.w = obj.prior.mu;
+            % Set mean of weights as new model weights
+            obj.w = mean(obj.prior.W,2);
         end
         
         function [] = update_lambda(obj,err)
@@ -187,7 +207,8 @@ classdef MT_baseclass < handle
             % function to print all the options for this implementation
             fprintf('[MT base] number of iterations: %d\n',obj.nIts);
             fprintf('[MT base] ML estimation of lambda: %d\n',obj.lambdaML);
-            fprintf('[MT base] trace-adjusted covariance update: %d\n',obj.trAdjust);
+            fprintf('[MT base] Covariance flag: %s\n',obj.covFlag);
+            fprintf('[MT base] Restrict prior mean to zero: %d\n', obj.zeroMean);
             fprintf('[MT base] Verbose: %d\n',obj.verbose);
             fprintf('[MT base] Parallel: %d\n',obj.parallel);
         end
@@ -213,29 +234,53 @@ classdef MT_baseclass < handle
         %                       Generic helper functions
         %%%%%%%%%%%%%%%%%%%%%%
         
-        function prior_struct = update_gaussian_prior(M, trAdjust)
+        function prior_struct = update_gaussian_prior(M, zeromean, flag)
             % Function that updates gaussian prior given samples and trace
             % adjust flag
-            prior_struct.mu = mean(M,2);
             prior_struct.W = M;
-            temp = M - repmat(prior_struct.mu,1, size(M,2));
-            obj.w = prior_struct.mu;
-            if trAdjust
-                % Trace-normalized update
-                C = (1/trace(temp*temp'))*(temp*temp');
+            if ~zeromean
+                prior_struct.mu = mean(M,2);
             else
-                % standard ML covariance update
-                C = (1/(size(temp,2)-1))*(temp*temp');
+                prior_struct.mu = zeros(size(M,1),1);
+            end
+            temp = M - repmat(prior_struct.mu,1, size(M,2));
+            
+            % compute eta beforehand
+            %
+            %             % regularize as necessary
+            %             if rank(C) < size(C,1)
+            e = eig((1/(size(temp,2)-1))*(temp*temp'));
+            if ~sum(e>0)
+                eta = 1;
+            else
+                eta = min(e(e>0));
             end
             
-            % regularize as necessary
-            if rank(C) < size(C,1)
-                e = eig((1/(size(temp,2)-1))*(temp*temp'));
-                if ~sum(e>0)
-                    eta = 1;
-                else
-                    eta = min(e(e>0));
-                end
+            
+            switch flag
+                case 'l2'
+                    % standard ML covariance update
+                    C = (1/(size(temp,2)-1))*(temp*temp');
+                case 'l2-trace'
+                    % Trace-normalized update
+                    C = (1/trace(temp*temp'))*(temp*temp');
+                case 'l1'
+                    % Trace-normalized square root update
+                    D = temp*temp' + eye(size(temp,1))*eta;
+                    C = (trace(D)^2)*(D^0.5);
+                case 'l1-diag'
+                    
+                    W_columns = zeros(size(temp,1),1);
+                    for i = 1:length(W_columns)
+                        W_columns(i) = norm(temp(i,:));
+                    end
+                    
+                    W_21 = norm(W_columns,1);
+                    C = diag(W_columns/W_21);
+                    
+            end
+            
+            if rank (C) < size(C,1)
                 C = C + eta*eye(size(C,1));
             end
             

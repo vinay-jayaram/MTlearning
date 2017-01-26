@@ -1,6 +1,8 @@
 classdef MT_FD_model < MT_baseclass
     
     properties(GetAccess = 'public', SetAccess = 'private')
+        % remember what sort of model you are
+        Type
         % weight vector for classification
         labels
         model_spec
@@ -44,6 +46,7 @@ classdef MT_FD_model < MT_baseclass
             else
                 fprintf('Unknown model type, something went terribly wrong!\n');
             end
+            obj.Type = type;
         end
         
         %function [] = init_prior(obj)
@@ -58,7 +61,7 @@ classdef MT_FD_model < MT_baseclass
             obj.prior.spat = obj.model_spat.prior;
         end
         
-        function prior = fit_prior(obj, Xcell, ycell)
+        function prior = fit_prior(obj, Xcell, ycell, varargin)
             % sanity checks
             assert(length(Xcell) == length(ycell), 'unequal data and labels arrays');
             assert(length(Xcell) > 1, 'only one dataset provided');
@@ -66,18 +69,35 @@ classdef MT_FD_model < MT_baseclass
                 assert(size(Xcell{i},3) == length(ycell{i}), 'number of datapoints and labels differ');
                 ycell{i} = reshape(ycell{i},[],1);
             end
-            
-            assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
-            obj.labels(:,1) = unique(cat(1,ycell{:}));
-            obj.model_spat.labels = obj.labels;
-            % replace labels with {1,-1} for algorithm
-            for i = 1:length(ycell)
-                ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
+
+            lambda = invarargin(varargin,'lambda');
+            if isempty(lambda)
+                lambda = NaN;
             end
-            %obj.w = zeros(size(Xcell{1},2),1);
-            %obj.a = zeros(size(Xcell{1},1),1);
-            obj.init_prior(size(Xcell{1},1),size(Xcell{1},2));
-            prior = fit_prior@MT_baseclass(obj, Xcell, ycell);
+            
+            cv = invarargin(varargin, 'cv');
+            % flag to get around infinite recursion...
+            if isempty(cv)
+                cv = 0;
+            end
+            if ~cv
+                assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
+                if isempty(obj.labels)
+                    obj.labels = [unique(cat(1,ycell{:})),obj.classid];
+                end
+                obj.model_spat.labels = obj.labels;
+                % replace labels with {1,-1} for algorithm
+                for i = 1:length(ycell)
+                    ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
+                end
+                obj.init_prior(size(Xcell{1},1),size(Xcell{1},2));
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+            else
+                obj.init_prior(size(Xcell{1},1),size(Xcell{1},2));
+                obj.model_spat.prior.W = zeros(size(obj.model_spat.prior.mu,1),length(Xcell));
+                obj.model_spec.prior.W = zeros(size(obj.model_spec.prior.mu,1),length(Xcell));
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+            end
         end
         
         function [b, conv] = convergence(obj, prior, prev_prior)
@@ -191,6 +211,13 @@ classdef MT_FD_model < MT_baseclass
                 y = obj.model_spat.prior_predict(Xw, 'labels', labels);
             end
         end 
+        
+        function [] = printswitches(obj)
+            fprintf('[MT FD Model] Model class: %s\n',obj.Type);
+            printswitches@MT_baseclass(obj);
+            
+            
+        end
        
     end
     

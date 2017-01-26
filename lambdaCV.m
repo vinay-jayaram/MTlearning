@@ -14,7 +14,7 @@ function [l, cvout] = lambdaCV(f,loss,data,labels,varargin)
 %       n:             Number of CV loops (default 10)
 %       parallel:    Parallel loops (<num cores> | none)
 %       lrange:     Vector of lambda values (default exp(-6:10))
-%       v:             boolean, verbose (default 0)
+%       verbose:             boolean, verbose (default 0)
 %       bootstrap: boolean, bootstrap to equalize classes (default 1)
 
 %% Argument parsing

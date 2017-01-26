@@ -32,7 +32,7 @@ classdef MT_linear_regression < MT_baseclass
     end
     
     methods
-        function obj = MT_linear(d, varargin)
+        function obj = MT_linear_regression(d, varargin)
             % Constructor for multitask linear regression. 
             %
             % Input:
@@ -66,6 +66,7 @@ classdef MT_linear_regression < MT_baseclass
         function [] = init_prior(obj, d, init_val)
             obj.prior.mu = init_val*ones(d, 1);
             obj.prior.sigma = eye(d);
+            obj.prior.W = [];
         end
         
         function prior = fit_prior(obj, Xcell, ycell)
@@ -79,30 +80,47 @@ classdef MT_linear_regression < MT_baseclass
                 ycell{i} = reshape(ycell{i},[],1);
             end
             
-            obj.w = zeros(size(Xcell{1},1),1);
-            
-            if obj.dimReduce
-                Xall = cat(2,Xcell{:});
-                Xcov = cov((Xall-kron(mean(Xall,2),ones(1,size(Xall,2))))');
-                [V,D] = eig(Xcov);
-                if min(diag(D)) > 0
-                    D = D / sum(sum(D));
-                    V = V(:,diag(D)>1e-8);
-                else
-                    D2 = D(:,diag(D)>0);
-                    D = D / sum(sum(D2));
-                    V = V(:,diag(D)>1e-8);
-                end
-                obj.W = V;
-                for i = 1:length(Xcell)
-                    Xcell{i} = obj.W'*Xcell{i};
-                end
-                obj.w = zeros(size(obj.W,2),1);
-                obj.init_prior(size(obj.W,2),0);
-            else
-                obj.W = [];
+                        lambda = invarargin(varargin,'lambda');
+            if isempty(lambda)
+                lambda = NaN;
             end
-            prior = fit_prior@MT_baseclass(obj, Xcell, ycell);
+            
+            cv = invarargin(varargin, 'cv');
+            % flag to get around infinite recursion...
+            if isempty(cv)
+                cv = 0;
+            end
+            if ~cv
+
+                obj.w = zeros(size(Xcell{1},1),1);
+                
+                if obj.dimReduce
+                    Xall = cat(2,Xcell{:});
+                    Xcov = cov((Xall-kron(mean(Xall,2),ones(1,size(Xall,2))))');
+                    [V,D] = eig(Xcov);
+                    if min(diag(D)) > 0
+                        D = D / sum(sum(D));
+                        V = V(:,diag(D)>1e-8);
+                    else
+                        D2 = D(:,diag(D)>0);
+                        D = D / sum(sum(D2));
+                        V = V(:,diag(D)>1e-8);
+                    end
+                    obj.W = V;
+                    for i = 1:length(Xcell)
+                        Xcell{i} = obj.W'*Xcell{i};
+                    end
+                    obj.w = zeros(size(obj.W,2),1);
+                    obj.init_prior(size(obj.W,2),0);
+                else
+                    obj.W = [];
+                    % obj.w was already initialized
+                    obj.init_prior(size(Xcell{1},1),obj.init_val);
+                end
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+            else
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+            end
         end
         
         function [b, converged] = convergence(obj, prior, prev_prior)
@@ -116,7 +134,6 @@ classdef MT_linear_regression < MT_baseclass
             Ax=obj.prior.sigma*X;
             w = ((1 / lambda)*Ax*X'+eye(size(X,1)))\((1 / lambda)*Ax*y + obj.prior.mu);
             error = obj.loss(w, X, y);
-            obj.w = w;
         end
         
         function out = fit_new_task(obj, X, y, varargin)
@@ -166,14 +183,6 @@ classdef MT_linear_regression < MT_baseclass
                 out.predict = @(X)(obj.predict(out.w, X));
             end
             out.training_acc = mean((y - out.predict(Xoriginal)).^2);
-        end
-        
-        function [] = update_prior(obj, outputCell)
-            W = cat(2,outputCell{:});
-            obj.prior = MT_baseclass.update_gaussian_prior(W, obj.trAdjust);
-            
-            % Set mean weights as new model weights
-            obj.w = obj.prior.mu;
         end
         
         function y = prior_predict(obj, X, varargin)
