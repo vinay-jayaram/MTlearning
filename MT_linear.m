@@ -3,7 +3,7 @@ classdef MT_linear < MT_baseclass
     % classification. Inherits prior computation code from MT_baseclass
     % and implements functions to fit new models given the prior
     % distribution. Accepts the following arguments *in addition*
-    % to those accepted by MT_baseclass:
+    % to those accepted by MT_baseclass (to see the rest, run 'help MT_baseclass'):
     %
     %      dim_reduce:      Use PCA for cross-subject dimensionality
     %                               reduction (default false)

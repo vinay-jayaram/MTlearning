@@ -2,21 +2,22 @@ classdef MT_baseclass < handle
     % Vinay Jayaram 10.11.16
     % Base class that implements some common methods to any
     % sort of MT learning that relies on an EM algorithm. Defines optional
-    % arguments that should be accepted by any inheriting class:
+    % arguments that should be accepted by any inheriting class (true/false are set with [1,0]):
     %    n_its:                    Number of iterations of the prior computation before
     %                                exiting (default 1000)
     %
     %    lambda_ml:          ML computation of the lambda value (see
     %                               paper). Default true (cross-validation is quite long)
     %
-    %    zero_mean:            Force the prior mean to be zero for a
+    %    zero_mean:         Binary. Force the prior mean to be zero for a
     %                               shrinkage effect. Independent of other parameters that affect the
     %                               prior
     %    cov_flag:             Flag that sets how the prior covariance is
     %                               computed. Current possibilities are {'l2' [default], 'l2-trace',
     %                               'l1', 'l1-diag'}
     %    cv_params:         Parameters to give the cross-validation
-    %                                function lambdaCV.m (also in this repo)
+    %                                function lambdaCV.m. Input as cell array e.g. 
+    %                                {'flag 1',val1, 'flag 2', val2...} (For possible parameters, run 'help lambdaCV')
     %
     %    verbose:              Output debugging information. Default false
     %
