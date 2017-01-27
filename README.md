@@ -12,8 +12,8 @@ The file testscript.m has sample data and runs through classification with the v
 1. Instantiate the model with appropriate size parameters and switches
 
 ```
-model = MT_linear(feature_dimension);
-moel = MT_FD_model(fdim1, fdim2, 'linear')
+model = MT_linear([flags]);
+moel = MT_FD_model({'linear','logistic', [flags])
 ```
 
 Note that there are two possible models (for details see [1]): the linear and bilinear. The linear model requires datasets of the form (features x labels) while the bilinear model (accessible through MT\_FD\_model) requires datsets of the form (electrodes x features x labels). 
@@ -35,13 +35,14 @@ updated = model.fit_new_task(Xtrain, ytrain)
 y_hat = updated.predict(new_X)
 ```
 
+For more help information and information on flags, please check the documentation for the functions MT\_baseclass and MT\_linear
 
 
 # Functionality
 
 ## Base class
 
-MT_baseclass implements a class that can be inherited which sketches out the general form of the two algorithms: Dataset specific models are updated in parallel and then a distribution is generated from the data-specific models, repeated in an alternating fashion. So, your basic E-M approach. Any class can inherit from this in order to create more algorithms of this nature
+MT_baseclass implements a class that can be inherited which sketches out the general form of the two algorithms: Dataset specific models are updated in parallel (when possible) and then a distribution is generated from the data-specific models, repeated in an alternating fashion. So, your basic E-M approach. Any class can inherit from this in order to create more algorithms of this nature
 
 ## Dataset-specific models
 
