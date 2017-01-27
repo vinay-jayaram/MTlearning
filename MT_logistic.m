@@ -24,6 +24,7 @@ classdef MT_logistic < MT_linear
             
             % construct superclass
             obj@MT_linear(d, varargin{:})
+            % specify that internal labels are 1/0 and not 1/-1
             obj.classid = [1;0];
         end
 

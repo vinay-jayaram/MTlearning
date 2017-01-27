@@ -7,6 +7,8 @@ classdef MT_FD_model < MT_baseclass
         labels
         model_spec
         model_spat
+        % internal label representation
+        classid
         % parameters for convergence
         maxItVar % maximum variation between iterations before convergence
         maxNumVar % maximum number of dimensions allowed to not converge
@@ -34,15 +36,14 @@ classdef MT_FD_model < MT_baseclass
             % Initialize models for each dimension
             assert(strcmp(type, 'linear') || strcmp(type, 'logistic'), ...
                 'type has to be linear or logistic.');
-            obj.labels = ones(2,2);
             if strcmp(type, 'linear')
                 obj.model_spat = MT_linear('dim_reduce', 0, 'n_its', 1, 'prior_init_val', 1);
                 obj.model_spec = MT_linear('dim_reduce', 0, 'n_its', 1, 'prior_init_val', 0);
-                obj.labels(:,2) = [1; -1];
+                obj.classid=[1;-1];
             elseif strcmp(type, 'logistic')
                 obj.model_spat = MT_logistic('dim_reduce', 0, 'n_its', 1, 'prior_init_val', 1);
                 obj.model_spec = MT_logistic('dim_reduce', 0, 'n_its', 1, 'prior_init_val', 0);
-                obj.labels(:,2) = [0; 1];
+                obj.classid=[1;0];
             else
                 fprintf('Unknown model type, something went terribly wrong!\n');
             end
@@ -82,20 +83,21 @@ classdef MT_FD_model < MT_baseclass
             end
             if ~cv
                 assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
-                if isempty(obj.labels)
-                    obj.labels = [unique(cat(1,ycell{:})),obj.classid];
-                end
-                obj.model_spat.labels = obj.labels;
-                % replace labels with {1,-1} for algorithm
+                obj.labels = [unique(cat(1,ycell{:})),obj.classid];
+                % replace labels for algorithm
                 for i = 1:length(ycell)
                     ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
                 end
+                obj.model_spat.labels = repmat(obj.classid,1,2);
+                obj.model_spec.labels = repmat(obj.classid,1,2);
                 obj.init_prior(size(Xcell{1},1),size(Xcell{1},2));
+                obj.prior.spat.W = zeros(size(obj.prior.spat.mu,1),length(Xcell));
+                obj.prior.spec.W = zeros(size(obj.prior.spec.mu,1),length(Xcell));
                 prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
             else
                 obj.init_prior(size(Xcell{1},1),size(Xcell{1},2));
-                obj.model_spat.prior.W = zeros(size(obj.model_spat.prior.mu,1),length(Xcell));
-                obj.model_spec.prior.W = zeros(size(obj.model_spec.prior.mu,1),length(Xcell));
+                obj.prior.spat.W = zeros(size(obj.prior.spat.mu,1),length(Xcell));
+                obj.prior.spec.W = zeros(size(obj.prior.spec.mu,1),length(Xcell));
                 prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
             end
         end
@@ -206,7 +208,7 @@ classdef MT_FD_model < MT_baseclass
             Xw = dot3d(permute(X, [3, 1, 2]), obj.model_spec.w)';
             labels = invarargin(varargin, 'labels');
             if isempty(labels)
-                y = obj.model_spat.prior_predict(Xw);
+                y = obj.model_spat.prior_predict(Xw, 'labels', obj.labels);
             else
                 y = obj.model_spat.prior_predict(Xw, 'labels', labels);
             end
@@ -230,5 +232,18 @@ classdef MT_FD_model < MT_baseclass
           end
           y = MT_baseclass.swap_labels(y, labels, 'from');
        end
+       
+       function [W] = multi_task_f(obj, Xtrain, Ytrain, lambda)
+           prior = obj.fit_prior(Xtrain, Ytrain, 'lambda', lambda, 'cv', 1);
+           W = {prior.spec.W, prior.spat.W};
+       end
+       
+       function [loss] = multi_task_loss(obj,W,Xtest,Ytest)
+           loss = 0;
+           for i = 1:length(Xtest)
+               loss = loss + obj.loss({W{1}(:,i),W{2}(:,i)},Xtest{i},Ytest{i});
+           end
+       end
+       
     end
 end

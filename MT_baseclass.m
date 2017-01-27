@@ -137,8 +137,8 @@ classdef MT_baseclass < handle
                     % recursive...)
                     updateLambda = 0;
                     disp('Invalid lambda value given. Using cross-validation to estimate.');
-                    childObj.lambda = lambdaCV(@(X,y,lambda)(multi_task_f(childObj,X,y,lambda)),...
-                        @(W, X, y)(multi_task_loss(childObj,W,X,y)),Xcell,ycell,childObj.cvParams{:});
+                    childObj.lambda = lambdaCV(@(X,y,lambda)(childObj.multi_task_f(childObj,X,y,lambda)),...
+                        @(W, X, y)(childObj.multi_task_loss(childObj,W,X,y)),Xcell,ycell,childObj.cvParams{:});
                     
                 end
             else
@@ -266,7 +266,7 @@ classdef MT_baseclass < handle
                     C = (1/trace(temp*temp'))*(temp*temp');
                 case 'l1'
                     % Trace-normalized square root update
-                    D = temp*temp' + eye(size(temp,1))*eta;
+                    D = temp*temp' + eye(size(temp,1))*1e-10;
                     C = (trace(D)^2)*(D^0.5);
                 case 'l1-diag'
                     
@@ -308,17 +308,19 @@ classdef MT_baseclass < handle
             y_switched = tmp;
         end
         
+        function [W] = multi_task_f(obj, Xtrain, Ytrain, lambda)
+            prior = obj.fit_prior(Xtrain, Ytrain, 'lambda', lambda, 'cv', 1);
+            W = prior.W;
+        end
+        
+        function [loss] = multi_task_loss(obj,W,Xtest,Ytest)
+            loss = 0;
+            for i = 1:length(Xtest)
+                loss = loss + obj.loss(W(:,i),Xtest{i},Ytest{i});
+            end
+        end
+        
     end
 end
 
-function [W] = multi_task_f(obj, Xtrain, Ytrain, lambda)
-prior = obj.fit_prior(Xtrain, Ytrain, 'lambda', lambda, 'cv', 1);
-W = prior.W;
-end
 
-function [loss] = multi_task_loss(obj,W,Xtest,Ytest)
-loss = 0;
-for i = 1:length(Xtest)
-    loss = loss + obj.loss(W(:,i),Xtest{i},Ytest{i});
-end
-end

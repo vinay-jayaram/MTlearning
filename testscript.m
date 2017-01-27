@@ -51,15 +51,16 @@ end
 
 type = {'linear'};%,'logistic'};
 
-for i = 1:2
-    FD{i} = MT_FD_model(type{i},'n_its',n_its);
+for i = 1:length(type)
+    disp(['********************FD ', type{i},'**********************']);
+    FD{i} = MT_FD_model(type{i},'n_its',5,'verbose',1);
     FD{i}.printswitches;
     FD{i}.fit_prior(T_X, T_y);
     acc = mean(FD{i}.prior_predict(X_s) == y_s);
-fprintf('Logreg FD prior accuracy: %.2f\n', acc*100);
+fprintf('Prior accuracy: %.2f\n', acc*100);
 out = FD{i}.fit_new_task(X_s, y_s, 'ml', 1);
 acc = mean(out.predict(X_s) == y_s);
-fprintf('New task training accuracy (FD logreg): %.2f\n', acc*100);
+fprintf('New task training accuracy: %.2f\n', acc*100);
 end
 
 fprintf('Script finished!\n');

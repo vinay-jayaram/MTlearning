@@ -54,7 +54,7 @@ classdef MT_linear < MT_baseclass
             end
             obj.maxItVar = invarargin(varargin,'max_it_var');
             if isempty(obj.maxItVar)
-                obj.maxItVar = 1e-3;
+                obj.maxItVar = 1e-4;
             end
             obj.maxNumVar = invarargin(varargin,'max_pct_var');
             if isempty(obj.maxNumVar)
@@ -95,9 +95,8 @@ classdef MT_linear < MT_baseclass
             end
             if ~cv
                 assert(length(unique(cat(1,ycell{:}))) == 2, 'more than two classes present in the data');
-                if isempty(obj.labels)
-                    obj.labels = [unique(cat(1,ycell{:})),obj.classid];
-                end
+                % always re-update the labels for each use of the prior
+                obj.labels = [unique(cat(1,ycell{:})),obj.classid];
                 % replace labels with {1,-1} for algorithm
                 for i = 1:length(ycell)
                     ycell{i} = MT_baseclass.swap_labels(ycell{i}, obj.labels, 'to');
@@ -138,7 +137,7 @@ classdef MT_linear < MT_baseclass
         function [converged, b] = convergence(obj, prior, prev_prior)
             W = prior.W;
             W_prev = prev_prior.W;
-            converged = norm(W - W_prev, 'fro') < obj.maxItVar; %obj.maxItVar * norm(W_prev,'fro');
+            converged = norm(W - W_prev, 'fro') < obj.maxItVar * mean(mean(W));
             b = norm(W - W_prev,'fro');
         end
         
