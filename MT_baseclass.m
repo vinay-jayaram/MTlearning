@@ -266,7 +266,7 @@ classdef MT_baseclass < handle
                     C = (1/trace(temp*temp'))*(temp*temp');
                 case 'l1'
                     % Trace-normalized square root update
-                    D = temp*temp' + eye(size(temp,1))*1e-10;
+                    D = temp*temp' + eye(size(temp,1))*eta;
                     C = (trace(D)^2)*(D^0.5);
                 case 'l1-diag'
                     

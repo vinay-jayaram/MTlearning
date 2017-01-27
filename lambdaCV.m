@@ -11,7 +11,7 @@ function [l, cvout] = lambdaCV(f,loss,data,labels,varargin)
 %       labels:  Class labels {1,-1} (cell array)
 %
 % Optional Arguments
-%       n:             Number of CV loops (default 10)
+%       n:             Number of CV loops (default 5)
 %       parallel:    Parallel loops (<num cores> | none)
 %       lrange:     Vector of lambda values (default exp(-6:10))
 %       verbose:             boolean, verbose (default 0)
@@ -20,7 +20,7 @@ function [l, cvout] = lambdaCV(f,loss,data,labels,varargin)
 %% Argument parsing
 n = invarargin(varargin,'n');
 if isempty(n)
-    n=10;
+    n=5;
 end
 
 v = invarargin(varargin,'verbose');
