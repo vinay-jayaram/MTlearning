@@ -95,7 +95,7 @@ classdef MT_baseclass < handle
                 obj.parallel = 0;
             end
             obj.prior = struct();
-            obj.lambda = 1;
+            obj.prior.lambda = 1;
             obj.eta = 1e-3; % Should this be editable?
         end
         
@@ -127,18 +127,18 @@ classdef MT_baseclass < handle
                 end
             end
             
-            childObj.lambda = lambda;
-            if isnan(childObj.lambda)
+            childObj.prior.lambda = lambda;
+            if isnan(childObj.prior.lambda)
                 if childObj.lambdaML
                     disp('Invalid lambda value given. Using maximum-likelihood estimation of lambda parameter.');
-                    childObj.lambda = 1;
+                    childObj.prior.lambda = 1;
                     updateLambda = 1;
                 else
                     % if no ML and no lambda given then cross-validate (is
                     % recursive...)
                     updateLambda = 0;
                     disp('Invalid lambda value given. Using cross-validation to estimate.');
-                    childObj.lambda = lambdaCV(@(X,y,lambda)(childObj.multi_task_f(childObj,X,y,lambda)),...
+                    childObj.prior.lambda = lambdaCV(@(X,y,lambda)(childObj.multi_task_f(childObj,X,y,lambda)),...
                         @(W, X, y)(childObj.multi_task_loss(childObj,W,X,y)),Xcell,ycell,childObj.cvParams{:});
                     
                 end
@@ -153,17 +153,19 @@ classdef MT_baseclass < handle
                 prev_prior = childObj.prior;
                 if childObj.parallel
                     parfor i = 1:length(Xcell)
-                        [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
+                        [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.prior.lambda);
                     end
                 else
                     for i = 1: length(Xcell)
-                        [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.lambda);
+                        [outputs{i}, error(i)] = childObj.fit_model(Xcell{i}, ycell{i}, childObj.prior.lambda);
                     end
                 end
                 if updateLambda
                     childObj.update_lambda(error);
                 end
+                tmp = childObj.prior.lambda;
                 childObj.update_prior(outputs);
+                childObj.prior.lambda = tmp;
                 its = its + 1;
                 [convergence, num] = childObj.convergence(childObj.prior, prev_prior);
                 if convergence
@@ -193,9 +195,9 @@ classdef MT_baseclass < handle
         function [] = update_lambda(obj,err)
             % Updates lambda with ML formulation if flag is set
             if obj.lambdaML
-                obj.lambda = 2*mean(err); % ...i *think* this is right
+                obj.prior.lambda = 2*mean(err); % ...i *think* this is right
                 if obj.verbose
-                    fprintf('lambda: %.2e\n', obj.lambda);
+                    fprintf('lambda: %.2e\n', obj.prior.lambda);
                 end
             end
         end
