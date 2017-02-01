@@ -43,7 +43,7 @@ end
 
 lrange = invarargin(varargin,'lrange');
 if isempty(lrange)
-    lrange=exp(-6:10);
+    lrange=[exp(-6),exp(-2:0.2:2),exp(6)];
 end
 
 %% Main code
@@ -71,7 +71,7 @@ for i = 1:length(data)
     end
 end
 
-cvacc=zeros(n,length(lrange));
+cvloss=zeros(n,length(lrange));
 
 if ~parallel
     for l = 1:length(lrange)
@@ -103,7 +103,7 @@ if ~parallel
             end
             
             ret_obj = f(trialdata, triallabels, lrange(l));
-            cvacc(it,l)=loss(ret_obj,testdata,testlabels);
+            cvloss(it,l)=loss(ret_obj,testdata,testlabels);
         end
     end
 else
@@ -150,13 +150,13 @@ else
             end
             
             ret_obj = f(trialdata, triallabels, lrange(l));
-            cvacc(it,l)=loss(ret_obj,testdata,testlabels);
+            cvloss(it,l)=loss(ret_obj,testdata,testlabels);
         end
     end
     delete(pool);
 end
-cvout=cvacc;
-cvacc=mean(cvacc,1);
-[~,l]=max(cvacc);
+cvout=cvloss;
+cvloss=mean(cvloss,1);
+[~,l]=min(cvloss);
 l=lrange(l(end));
 end

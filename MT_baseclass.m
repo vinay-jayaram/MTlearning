@@ -87,8 +87,10 @@ classdef MT_baseclass < handle
             if isempty(obj.verbose)
                 obj.verbose=0;
             else
-                obj.cvParams{end+1} = 'verbose';
-                obj.cvParams{end+1} = 1;
+                if obj.verbose ~= 0
+                    obj.cvParams{end+1} = 'verbose';
+                    obj.cvParams{end+1} = 1;
+                end
             end
             obj.parallel = invarargin(varargin,'parallel');
             if isempty(obj.parallel)
