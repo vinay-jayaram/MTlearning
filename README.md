@@ -57,7 +57,8 @@ There is an enormous space of possibilties for how this framework can be extende
 Please feel free (indeed, urged) to let me know through the issues feature whether something is not working and I will be happy to fix them as soon as I can. If preferrable, feel free also to send mail to vjayaram@tue.mpg.de 
 
 # Python
-Python version coming shortly...
+For the python Python version please check out our related [page](https://github.com/bibliolytic/pyMTL). 
+
 
 # Citations:
 

@@ -95,6 +95,8 @@ classdef MT_baseclass < handle
             obj.parallel = invarargin(varargin,'parallel');
             if isempty(obj.parallel)
                 obj.parallel = 0;
+            else
+                fprintf('[MT base] Attempting parallel implementation with %d cores\n',obj.parallel);
             end
             obj.prior = struct();
             obj.prior.lambda = 1;
