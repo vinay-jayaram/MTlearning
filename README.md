@@ -1,4 +1,8 @@
 # Transfer Learning in Brain-Computer Interfaces
+
+[![Latest Version](http://img.shields.io/pypi/v/Markdown.svg)](http://pypi.python.org/pypi/Markdown)
+[![Downloads](http://img.shields.io/pypi/dm/Markdown.svg)](https://pypi.python.org/pypi/Markdown#downloads)
+
 Object-oriented multi-task learning framework for Bayesian hierarchial models written in MATLAB. Implements the regression based approaches from Jayaram et al. [1] and the logistic approach by Fiebig et al. [2], but should be easily extendable.
 
 # Installation

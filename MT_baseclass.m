@@ -134,14 +134,14 @@ classdef MT_baseclass < handle
             childObj.prior.lambda = lambda;
             if isnan(childObj.prior.lambda)
                 if childObj.lambdaML
-                    disp('Invalid lambda value given. Using maximum-likelihood estimation of lambda parameter.');
+                    disp('No lambda value given. Using maximum-likelihood estimation of lambda parameter.');
                     childObj.prior.lambda = 1;
                     updateLambda = 1;
                 else
                     % if no ML and no lambda given then cross-validate (is
                     % recursive...)
                     updateLambda = 0;
-                    disp('Invalid lambda value given. Using cross-validation to estimate.');
+                    disp('No lambda value given. Using cross-validation to estimate.');
                     childObj.prior.lambda = lambdaCV(@(X,y,lambda)(childObj.multi_task_f(childObj,X,y,lambda)),...
                         @(W, X, y)(childObj.multi_task_loss(childObj,W,X,y)),Xcell,ycell,childObj.cvParams{:});
                     

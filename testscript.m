@@ -58,7 +58,7 @@ for i = 1:length(type)
     FD{i}.fit_prior(T_X(1:4), T_y(1:4));
     acc = mean(FD{i}.prior_predict(T_X{5}) == T_y{5});
     fprintf('Prior accuracy on held-out data: %.2f\n', acc*100);
-    out = FD{i}.fit_new_task(T_X{5}, T_y{5}, 'ml', 0);
+    out = FD{i}.fit_new_task(T_X{5}, T_y{5}, 'ml', 0,'verbose',1);
     acc = mean(out.predict(T_X{5}) == T_y{5});
     fprintf('New task training accuracy: %.2f\n', acc*100);
 end
