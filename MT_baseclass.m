@@ -284,8 +284,7 @@ classdef MT_baseclass < handle
                     
                     W_21 = norm(W_columns,1);
                     C = diag(W_columns/W_21);
-                    
-            end
+             end
             
             if rank (C) < size(C,1)
                 C = C + eta*eye(size(C,1));
