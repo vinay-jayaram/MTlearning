@@ -25,14 +25,14 @@ classdef MT_linear_regression < MT_baseclass
         w
         % binary flag for dimensionality reduction
         dimReduce
-
+        initVal
         % parameters for convergence
         maxItVar % maximum variation between iterations before convergence
         maxNumVar % maximum number of dimensions allowed to not converge
     end
     
     methods
-        function obj = MT_linear_regression(d, varargin)
+        function obj = MT_linear_regression(varargin)
             % Constructor for multitask linear regression. 
             %
             % Input:
@@ -54,33 +54,28 @@ classdef MT_linear_regression < MT_baseclass
             if isempty(obj.maxNumVar)
                 obj.maxNumVar = 1e-2;
             end
-            init_val = invarargin(varargin,'prior_init_val');
-            if isempty(init_val)
-                init_val = 0;
+            initVal = invarargin(varargin,'prior_initVal');
+            if isempty(initVal)
+                obj.initVal = 0;
             end
-            
-            obj.init_prior(d, init_val);
-            obj.w = obj.prior.mu;
         end
         
-        function [] = init_prior(obj, d, init_val)
-            obj.prior.mu = init_val*ones(d, 1);
+        function [] = init_prior(obj, d, initVal)
+            obj.prior.mu = initVal*ones(d, 1);
             obj.prior.sigma = eye(d);
             obj.prior.W = [];
         end
         
-        function prior = fit_prior(obj, Xcell, ycell)
+        function prior = fit_prior(obj, Xcell, ycell,varargin)
             % sanity checks
             assert(length(Xcell) == length(ycell), 'unequal data and labels arrays');
             assert(length(Xcell) > 1, 'only one dataset provided');
-            assert(size(Xcell{1}, 1) == length(obj.prior.mu), ...
-                'Feature dimensionality of the data does not match this model');
             for i = 1:length(Xcell)
                 assert(size(Xcell{i},2) == length(ycell{i}), 'number of datapoints and labels differ');
                 ycell{i} = reshape(ycell{i},[],1);
             end
             
-                        lambda = invarargin(varargin,'lambda');
+            lambda = invarargin(varargin,'lambda');
             if isempty(lambda)
                 lambda = NaN;
             end
@@ -115,11 +110,11 @@ classdef MT_linear_regression < MT_baseclass
                 else
                     obj.W = [];
                     % obj.w was already initialized
-                    obj.init_prior(size(Xcell{1},1),obj.init_val);
+                    obj.init_prior(size(Xcell{1},1),obj.initVal);
                 end
-                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, 'lambda', lambda);
             else
-                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, 'lambda', lambda);
             end
         end
         
@@ -174,8 +169,8 @@ classdef MT_linear_regression < MT_baseclass
                 end
             else
                 out.lambda = lambdaCV(@(X,y,lambda)(obj.fit_model(X{1},y{1},lambda)),...
-                    @(w, X, y)(obj.loss(w, X{1}, y{1})),{X},{y_train});
-                [out.w, out.loss] = obj.fit_model(X, y_train, out.lambda);
+                    @(w, X, y)(obj.loss(w, X{1}, y{1})),{X},{y});
+                [out.w, out.loss] = obj.fit_model(X, y, out.lambda);
             end
             if obj.dimReduce
                 out.predict = @(X)(obj.predict(out.w, obj.W'*X));

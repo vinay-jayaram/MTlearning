@@ -107,13 +107,15 @@ classdef MT_baseclass < handle
         %            Update functions
         %%%%%%%%%%%%%%%%%%%%%%
         
-        function prior = fit_prior(childObj, Xcell, ycell, lambda)
+        function prior = fit_prior(childObj, Xcell, ycell, varargin)
             % Function to fit prior given another class that defines loss
             % and parameter estimation steps. If given a nonsense lambda
             % value
             %
             % Output:
             %   prior: struct with final prior values.
+            
+            lambda = invarargin(varargin, 'lambda');
             
             its = 0;
             error = zeros(length(Xcell),1);
@@ -233,7 +235,7 @@ classdef MT_baseclass < handle
         function [] = setprior(obj,P)
             obj.prior = P;
         end
-        
+             
     end
     
     methods(Static)
@@ -260,7 +262,7 @@ classdef MT_baseclass < handle
             if ~sum(e>0)
                 eta = 1;
             else
-                eta = min(e(e>0));
+                eta = abs(min(e(e>0)));
             end
             
             
@@ -273,7 +275,8 @@ classdef MT_baseclass < handle
                     C = (1/trace(temp*temp'))*(temp*temp');
                 case 'l1'
                     % Trace-normalized square root update
-                    D = sqrtm(temp*temp' + eye(size(temp,1))*1e-5);
+                    eta = 1e-4;
+                    D = sqrtm(temp*temp' + eye(size(temp,1))*eta);
                     C = D/trace(D);
                 case 'l1-diag'
                     
@@ -284,6 +287,8 @@ classdef MT_baseclass < handle
                     
                     W_21 = norm(W_columns,1);
                     C = diag(W_columns/W_21);
+                otherwise
+                    error('invalid covariance estimation flag given.');
              end
             
             if rank (C) < size(C,1)
@@ -325,6 +330,7 @@ classdef MT_baseclass < handle
                 loss = loss + obj.loss(W(:,i),Xtest{i},Ytest{i});
             end
         end
+        
         
     end
 end

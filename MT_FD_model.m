@@ -93,12 +93,12 @@ classdef MT_FD_model < MT_baseclass
                 obj.init_prior(size(Xcell{1},1),size(Xcell{1},2));
                 obj.prior.spat.W = zeros(size(obj.prior.spat.mu,1),length(Xcell));
                 obj.prior.spec.W = zeros(size(obj.prior.spec.mu,1),length(Xcell));
-                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, 'lambda', lambda);
             else
                 obj.init_prior(size(Xcell{1},1),size(Xcell{1},2));
                 obj.prior.spat.W = zeros(size(obj.prior.spat.mu,1),length(Xcell));
                 obj.prior.spec.W = zeros(size(obj.prior.spec.mu,1),length(Xcell));
-                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, 'lambda', lambda);
             end
         end
         

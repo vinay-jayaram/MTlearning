@@ -126,11 +126,11 @@ classdef MT_linear < MT_baseclass
                     obj.init_prior(size(Xcell{1},1),obj.init_val);
                 end
                 obj.prior.W = zeros(size(obj.prior.mu,1),length(Xcell));
-                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, 'lambda', lambda);
             else
                 obj.init_prior(size(obj.prior.mu,1),obj.init_val);
                 obj.prior.W = zeros(size(obj.prior.mu,1),length(Xcell));
-                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, lambda);
+                prior = fit_prior@MT_baseclass(obj, Xcell, ycell, 'lambda', lambda);
             end
         end
         
