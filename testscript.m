@@ -56,15 +56,11 @@ end
 % How to use the bilinear version of this approach
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-type = {'linear', 'logistic',''};
+type = {'linear', 'logistic'};
 
 for i = 1:length(type)
     disp(['********************FD ', type{i},'**********************']);
-    if strcmp(type{i},'')
-        FD{i} = MTD_model('linear','n_its',5,'verbose',0,'max_rank',1);
-    else
-        FD{i} = MT_FD_model(type{i},'n_its',5,'verbose',0);
-    end
+    FD{i} = MT_FD_model(type{i},'n_its',5,'verbose',0);
     FD{i}.printswitches;
     FD{i}.fit_prior(T_X(1:4), T_y(1:4));
     acc = mean(FD{i}.prior_predict(T_X{5}) == T_y{5});
