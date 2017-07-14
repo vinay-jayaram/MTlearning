@@ -247,11 +247,7 @@ classdef MT_baseclass < handle
             % Function that updates gaussian prior given samples and trace
             % adjust flag
             prior_struct.W = M;
-            if ~zeromean
-                prior_struct.mu = mean(M,2);
-            else
-                prior_struct.mu = zeros(size(M,1),1);
-            end
+            prior_struct.mu = mean(M,2);
             temp = M - repmat(prior_struct.mu,1, size(M,2));
             
             % compute eta beforehand
@@ -298,6 +294,10 @@ classdef MT_baseclass < handle
             prior_struct.sigma = C;
             if exist('eta','var')
                 prior_struct.eta = eta;
+            end
+           
+            if zeromean
+                 prior_struct.mu = zeros(size(M,1),1);
             end
         end
         

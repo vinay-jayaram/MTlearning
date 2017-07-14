@@ -86,7 +86,6 @@ classdef MT_linear_regression < MT_baseclass
                 cv = 0;
             end
             if ~cv
-
                 obj.w = zeros(size(Xcell{1},1),1);
                 
                 if obj.dimReduce
@@ -105,24 +104,26 @@ classdef MT_linear_regression < MT_baseclass
                     for i = 1:length(Xcell)
                         Xcell{i} = obj.W'*Xcell{i};
                     end
-                    obj.w = zeros(size(obj.W,2),1);
                     obj.init_prior(size(obj.W,2),0);
                 else
                     obj.W = [];
                     % obj.w was already initialized
                     obj.init_prior(size(Xcell{1},1),obj.initVal);
                 end
+                obj.prior.W = zeros(size(obj.prior.mu,1),length(Xcell));
                 prior = fit_prior@MT_baseclass(obj, Xcell, ycell, 'lambda', lambda);
             else
+                obj.init_prior(size(obj.prior.mu,1),obj.initVal);
+                obj.prior.W = zeros(size(obj.prior.mu,1),length(Xcell));
                 prior = fit_prior@MT_baseclass(obj, Xcell, ycell, 'lambda', lambda);
             end
         end
         
-        function [b, converged] = convergence(obj, prior, prev_prior)
-            mu = abs(prior.mu);
-            mu_prev = abs(prev_prior.mu);
-            converged = sum(or(mu > (mu_prev+obj.maxItVar*mu_prev), mu < (mu_prev - obj.maxItVar * mu_prev)));
-            b = converged < (obj.maxNumVar * length(mu));
+        function [converged, b] = convergence(obj, prior, prev_prior)
+            W = prior.W;
+            W_prev = prev_prior.W;
+            converged = norm(W - W_prev, 'fro') < obj.maxItVar * mean(mean(W));
+            b = norm(W - W_prev,'fro');
         end
         
         function [w, error] = fit_model(obj, X, y, lambda)
@@ -181,11 +182,10 @@ classdef MT_linear_regression < MT_baseclass
         end
         
         function y = prior_predict(obj, X, varargin)
-
             if obj.dimReduce
                 X = obj.W'*X;
             end
-            y = obj.predict(obj.prior.mu, X);
+            y = obj.predict(mean(obj.prior.W,2), X);
         end
         
     end
