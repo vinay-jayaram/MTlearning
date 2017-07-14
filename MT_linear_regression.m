@@ -18,7 +18,6 @@ classdef MT_linear_regression < MT_baseclass
    %                                (default 0) 
    
     properties(GetAccess = 'public', SetAccess = 'public')
-
         % optional dimensionality reduction matrix
         W
         % weight vector for classification

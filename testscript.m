@@ -18,9 +18,9 @@ order = {'l2','l2-trace','l1-diag','l1'};
 % linear version
 for i = 1:length(order)
     disp(['********************* Covariance update: ', order{i}, '*************************']);
-    linear_model{i} = MT_linear('dim_reduce',1,'n_its',1e2,'lambda_ml',0,'cov_flag',order{i},'zero_mean',1);
-    regression_model{i} = MT_linear_regression('dim_reduce',0,'n_its',1e2,'lambda_ml',0,'cov_flag',order{i},'zero_mean',0);
-    log_model{i} = MT_logistic('dim_reduce',0,'n_its',n_its,'lambda_ml',0,'cov_flag',order{i});
+    linear_model{i} = MT_linear('dim_reduce',1,'n_its',1e2,'lambda_ml',1,'cov_flag',order{i},'zero_mean',0, 'verbose',0);
+    regression_model{i} = MT_linear_regression('dim_reduce',0,'n_its',1e2,'lambda_ml',1,'cov_flag',order{i},'zero_mean',1);
+    log_model{i} = MT_logistic('dim_reduce',0,'n_its',n_its,'lambda_ml',1,'cov_flag',order{i});
     disp('Confirm prior computation switches: ');
     linear_model{i}.printswitches;
     
